@@ -1,0 +1,326 @@
+/* assets/css/style.css */
+
+/* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #F8F6F2;
+    position: relative;
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+/* Font Arab */
+.font-amiri {
+    font-family: 'Amiri', serif;
+}
+
+/* Background Decorative Characters */
+.bg-char {
+    position: absolute;
+    font-size: 10rem;
+    color: rgba(0, 0, 0, 0.03);
+    z-index: 0;
+    user-select: none;
+    line-height: 1;
+    pointer-events: none;
+}
+
+/* Hidden Page */
+.hidden-page {
+    display: none !important;
+}
+
+/* Container */
+.container {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* Form Styles */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"],
+textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+input:focus,
+textarea:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Button Styles */
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #1f2937;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #111827;
+}
+
+.btn-indigo {
+    background-color: #4f46e5;
+    color: white;
+}
+
+.btn-indigo:hover {
+    background-color: #4338ca;
+}
+
+.btn-gray {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+.btn-gray:hover {
+    background-color: #d1d5db;
+}
+
+/* Navigation */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 80px;
+    border-radius: 1.5rem 1.5rem 0 0;
+    z-index: 50;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    text-decoration: none;
+    width: 33.333%;
+    transition: color 0.3s;
+}
+
+.nav-item:hover {
+    color: #4f46e5;
+}
+
+.nav-active {
+    color: #4f46e5 !important;
+}
+
+.nav-icon-bg {
+    padding: 0.75rem;
+    border-radius: 50%;
+    transition: background-color 0.3s;
+}
+
+.nav-active .nav-icon-bg {
+    background-color: #eef2ff;
+}
+
+/* Card Styles */
+.card {
+    background-color: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress Bar */
+.progress-bar {
+    height: 0.5rem;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #4f46e5;
+    transition: width 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Quiz Options */
+.quiz-option {
+    background-color: white;
+    border-radius: 1rem;
+    padding: 1rem;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quiz-option:hover {
+    border-color: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.quiz-option.selected {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 4px #c7d2fe;
+}
+
+.quiz-option.correct {
+    border-color: #22c55e;
+    background-color: #f0fdf4;
+}
+
+.quiz-option.incorrect {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+/* Quiz Input */
+.quiz-input {
+    font-family: 'Amiri', serif;
+    font-size: 1.5rem;
+    text-align: center;
+    padding: 1rem 1.5rem;
+}
+
+.quiz-input.correct {
+    border-color: #22c55e;
+    background-color: #f0fdf4;
+}
+
+.quiz-input.incorrect {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+/* Animations */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(134, 239, 172, 0); }
+    50% { box-shadow: 0 0 0 8px rgba(134, 239, 172, 0.4); }
+}
+
+.animate-pulse-green {
+    animation: pulse-green 1s;
+}
+
+/* Star Rating */
+.star {
+    color: #d1d5db;
+    transition: color 0.3s;
+}
+
+.star.filled {
+    color: #facc15;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.loading-overlay.active {
+    opacity: 1;
+}
+
+.spinner {
+    width: 4rem;
+    height: 4rem;
+    border: 4px solid transparent;
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Audio Button */
+.play-audio-btn {
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.play-audio-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    .bg-char {
+        font-size: 6rem;
+    }
+}
+
+/* Utility Classes */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-8 { margin-top: 2rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-8 { margin-bottom: 2rem; }
+.p-4 { padding: 1rem; }
+.p-8 { padding: 2rem; }
+.rounded { border-radius: 0.5rem; }
+.shadow { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+.w-full { width: 100%; }
