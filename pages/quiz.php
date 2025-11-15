@@ -450,51 +450,62 @@ $level_descriptions = [
         const userId = <?php echo $user['id']; ?>;
         const theme = '<?php echo addslashes($theme); ?>';
         const level = <?php echo $level; ?>;
-
+    
         let currentQuestion = 0;
         let score = 0;
         let currentAudio = null;
-
+    
+        // ==========================
+        //   RANDOMIZER (TAMBAHAN)
+        // ==========================
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+    
         function updateProgress() {
             const progress = ((currentQuestion + 1) / questions.length) * 100;
             document.getElementById('progressBar').style.width = progress + '%';
             document.getElementById('progressText').textContent = `${currentQuestion + 1}/${questions.length}`;
         }
-
+    
         function playAudio(url) {
             const audioBtn = document.getElementById('audioBtn');
-
+    
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio = null;
             }
-
+    
             currentAudio = new Audio(url);
             audioBtn.classList.add('playing');
-
+    
             currentAudio.play();
-
+    
             currentAudio.onended = () => {
                 audioBtn.classList.remove('playing');
             };
         }
-
+    
         document.getElementById('audioBtn').addEventListener('click', function() {
             if (questions[currentQuestion]) {
                 playAudio(questions[currentQuestion].audio_url);
             }
         });
-
+    
         function loadQuestion() {
             if (currentQuestion >= questions.length) {
                 saveProgress();
                 return;
             }
-
+    
             updateProgress();
             const q = questions[currentQuestion];
             const container = document.getElementById('questionContainer');
-
+    
             if (quizType === 'mc') {
                 loadMultipleChoice(q, container);
             } else if (quizType === 'write') {
@@ -505,42 +516,51 @@ $level_descriptions = [
                 loadStoryQuestion(q, container);
             }
         }
-
+    
+        // ===================================
+        //   MULTIPLE CHOICE (SUDAH DIACAK)
+        // ===================================
         function loadMultipleChoice(q, container) {
-            const options = [q.option_a, q.option_b, q.option_c, q.option_d];
-
+            let options = [
+                { text: q.option_a, isCorrect: q.option_a === q.correct_answer },
+                { text: q.option_b, isCorrect: q.option_b === q.correct_answer },
+                { text: q.option_c, isCorrect: q.option_c === q.correct_answer },
+                { text: q.option_d, isCorrect: q.option_d === q.correct_answer },
+            ];
+    
+            shuffleArray(options);
+    
             container.innerHTML = `
                 <div class="options-grid" id="optionsGrid">
                     ${options.map((opt, i) => `
                         <button class="option-btn" data-index="${i}">
-                            <span class="option-text">${opt}</span>
+                            <span class="option-text">${opt.text}</span>
                         </button>
                     `).join('')}
                 </div>
             `;
-
+    
             document.querySelectorAll('.option-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const selectedIndex = parseInt(this.dataset.index);
-                    const correctAnswer = q.correct_answer;
-                    const selectedAnswer = options[selectedIndex];
-
+                    const i = parseInt(this.dataset.index);
+                    const opt = options[i];
+    
                     document.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'none');
-
-                    if (selectedAnswer === correctAnswer) {
+    
+                    if (opt.isCorrect) {
                         this.classList.add('correct');
                         score++;
                         unlockMufrodat(q.audio_word, q.translation);
                     } else {
                         this.classList.add('incorrect');
-                        // Show correct answer
                         document.querySelectorAll('.option-btn').forEach(b => {
-                            if (options[parseInt(b.dataset.index)] === correctAnswer) {
+                            const idx = parseInt(b.dataset.index);
+                            if (options[idx].isCorrect) {
                                 b.classList.add('correct');
                             }
                         });
                     }
-
+    
                     setTimeout(() => {
                         currentQuestion++;
                         loadQuestion();
@@ -548,7 +568,10 @@ $level_descriptions = [
                 });
             });
         }
-
+    
+        // =============================
+        //   WRITE QUESTION (ASLI)
+        // =============================
         function loadWriteQuestion(q, container) {
             container.innerHTML = `
                 <form class="write-form" id="writeForm">
@@ -559,15 +582,15 @@ $level_descriptions = [
                     </button>
                 </form>
             `;
-
+    
             document.getElementById('writeForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const input = document.getElementById('writeInput');
                 const userAnswer = input.value.trim();
                 const correctAnswer = q.correct_answer;
-
+    
                 input.disabled = true;
-
+    
                 if (userAnswer === correctAnswer) {
                     input.classList.add('correct');
                     score++;
@@ -575,14 +598,17 @@ $level_descriptions = [
                 } else {
                     input.classList.add('incorrect');
                 }
-
+    
                 setTimeout(() => {
                     currentQuestion++;
                     loadQuestion();
                 }, 1500);
             });
         }
-
+    
+        // =============================
+        //   FILL QUESTION (ASLI)
+        // =============================
         function loadFillQuestion(q, container) {
             container.innerHTML = `
                 <div class="sentence-container">
@@ -598,15 +624,15 @@ $level_descriptions = [
                     </button>
                 </form>
             `;
-
+    
             document.getElementById('fillForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const input = document.getElementById('fillInput');
                 const userAnswer = input.value.trim();
                 const correctAnswer = q.correct_answer;
-
+    
                 input.disabled = true;
-
+    
                 if (userAnswer === correctAnswer) {
                     input.classList.add('correct');
                     score++;
@@ -614,37 +640,46 @@ $level_descriptions = [
                 } else {
                     input.classList.add('incorrect');
                 }
-
+    
                 setTimeout(() => {
                     currentQuestion++;
                     loadQuestion();
                 }, 1500);
             });
         }
-
+    
+        // =======================================
+        //   STORY QUESTION (JUgA DIACAKKAN)
+        // =======================================
         function loadStoryQuestion(q, container) {
-            const options = [q.option_a, q.option_b, q.option_c, q.option_d];
-
+            let options = [
+                { text: q.option_a, isCorrect: q.option_a === q.correct_answer },
+                { text: q.option_b, isCorrect: q.option_b === q.correct_answer },
+                { text: q.option_c, isCorrect: q.option_c === q.correct_answer },
+                { text: q.option_d, isCorrect: q.option_d === q.correct_answer }
+            ];
+    
+            shuffleArray(options);
+    
             container.innerHTML = `
                 <div class="story-question">${q.question_text}</div>
                 <div class="story-options">
                     ${options.map((opt, i) => `
                         <button class="story-option" data-index="${i}">
-                            <span class="story-option-text">${opt}</span>
+                            <span class="story-option-text">${opt.text}</span>
                         </button>
                     `).join('')}
                 </div>
             `;
-
+    
             document.querySelectorAll('.story-option').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const selectedIndex = parseInt(this.dataset.index);
-                    const correctAnswer = q.correct_answer;
-                    const selectedAnswer = options[selectedIndex];
-
+                    const i = parseInt(this.dataset.index);
+                    const opt = options[i];
+    
                     document.querySelectorAll('.story-option').forEach(b => b.style.pointerEvents = 'none');
-
-                    if (selectedAnswer === correctAnswer) {
+    
+                    if (opt.isCorrect) {
                         this.classList.add('correct');
                         this.style.borderColor = '#22c55e';
                         this.style.backgroundColor = '#f0fdf4';
@@ -653,15 +688,16 @@ $level_descriptions = [
                         this.classList.add('incorrect');
                         this.style.borderColor = '#ef4444';
                         this.style.backgroundColor = '#fef2f2';
-                        // Show correct answer
+    
                         document.querySelectorAll('.story-option').forEach(b => {
-                            if (options[parseInt(b.dataset.index)] === correctAnswer) {
+                            const idx = parseInt(b.dataset.index);
+                            if (options[idx].isCorrect) {
                                 b.style.borderColor = '#22c55e';
                                 b.style.backgroundColor = '#f0fdf4';
                             }
                         });
                     }
-
+    
                     setTimeout(() => {
                         currentQuestion++;
                         loadQuestion();
@@ -669,7 +705,7 @@ $level_descriptions = [
                 });
             });
         }
-
+    
         function unlockMufrodat(word, translation) {
             const audioUrl = questions[currentQuestion].audio_url;
             fetch('save_mufrodat.php', {
@@ -680,7 +716,7 @@ $level_descriptions = [
                 body: `word=${encodeURIComponent(word)}&translation=${encodeURIComponent(translation)}&audio_url=${encodeURIComponent(audioUrl)}`
             });
         }
-
+    
         function saveProgress() {
             fetch('save_progress.php', {
                     method: 'POST',
@@ -693,8 +729,8 @@ $level_descriptions = [
                     window.location.href = `result.php?score=${score}&total=${questions.length}`;
                 });
         }
-
-        // Start quiz
+    
+        // Mulai quiz
         loadQuestion();
     </script>
 </body>
