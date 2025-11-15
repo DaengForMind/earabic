@@ -1,98 +1,101 @@
 <?php
 // config/database.php
-// Improved Railway-compatible DB config and safe session start
 
-// Prefer public URL if available (useful when connecting from outside Railway)
+// -------------------------------
+// 1. LOAD ENV RAILWAY
+// -------------------------------
 $publicUrl = getenv('MYSQL_PUBLIC_URL');
 
+// Railway Public URL jika tersedia (akses dari luar container)
 if ($publicUrl) {
     $parts = parse_url($publicUrl);
-    if ($parts !== false) {
-        define('DB_HOST', $parts['host'] ?? getenv('MYSQLHOST'));
-        define('DB_PORT', isset($parts['port']) ? (string)$parts['port'] : (getenv('MYSQLPORT') ?: '3306'));
-        define('DB_USER', $parts['user'] ?? getenv('MYSQLUSER'));
-        define('DB_PASS', $parts['pass'] ?? getenv('MYSQLPASSWORD'));
-        // path may begin with "/" so trim it
-        define('DB_NAME', isset($parts['path']) ? ltrim($parts['path'], '/') : (getenv('MYSQLDATABASE') ?: 'railway'));
-    } else {
-        // fallback to individual env vars
-        define('DB_HOST', getenv('MYSQLHOST') ?: 'localhost');
-        define('DB_PORT', getenv('MYSQLPORT') ?: '3306');
-        define('DB_USER', getenv('MYSQLUSER') ?: 'root');
-        define('DB_PASS', getenv('MYSQLPASSWORD') ?: '');
-        define('DB_NAME', getenv('MYSQLDATABASE') ?: 'railway');
-    }
-} elseif (getenv('MYSQLDATABASE')) {
-    // Railway internal envs
-    define('DB_HOST', getenv('MYSQLHOST') ?: 'localhost');
-    define('DB_USER', getenv('MYSQLUSER') ?: 'root');
-    define('DB_PASS', getenv('MYSQLPASSWORD') ?: '');
-    define('DB_NAME', getenv('MYSQLDATABASE') ?: 'railway');
-    define('DB_PORT', getenv('MYSQLPORT') ?: '3306');
-} else {
-    // Local development
+
+    define('DB_HOST', $parts['host']);
+    define('DB_PORT', $parts['port']);
+    define('DB_USER', $parts['user']);
+    define('DB_PASS', $parts['pass']);
+    define('DB_NAME', ltrim($parts['path'], '/'));
+}
+
+// Jika tidak ada PUBLIC_URL, pakai env default Railway internal
+elseif (getenv('MYSQLDATABASE')) {
+    define('DB_HOST', getenv('MYSQLHOST'));
+    define('DB_PORT', getenv('MYSQLPORT') ?: 3306);
+    define('DB_USER', getenv('MYSQLUSER'));
+    define('DB_PASS', getenv('MYSQLPASSWORD'));
+    define('DB_NAME', getenv('MYSQLDATABASE'));
+}
+
+// Mode lokal
+else {
     define('DB_HOST', 'localhost');
+    define('DB_PORT', 3306);
     define('DB_USER', 'root');
     define('DB_PASS', '');
     define('DB_NAME', 'earabic');
-    define('DB_PORT', '3306');
 }
 
-// Start session immediately (must happen before any output)
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+
+// -------------------------------
+// 2. START SESSION (AMAN)
+// -------------------------------
+function startSession() {
+    if (session_status() === PHP_SESSION_NONE) {
+        ini_set('session.use_strict_mode', 1);
+        session_start();
+    }
 }
 
-// Enable mysqli exceptions for clearer errors (optional, helpful for debugging)
+
+// -------------------------------
+// 3. KONEKSI DATABASE
+// -------------------------------
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-/**
- * getConnection — returns mysqli connection or throws exception
- * caller can catch or let error propagate to logs
- */
 function getConnection() {
-    $port = defined('DB_PORT') ? (int) DB_PORT : 3306;
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, $port);
-
-    if ($conn->connect_error) {
-        // Use error_log instead of echo (no output before headers)
-        error_log("DB connect error: " . $conn->connect_error);
-        throw new Exception("Database connection failed.");
+    try {
+        $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
+        $conn->set_charset("utf8mb4");
+        return $conn;
+    } catch (Throwable $e) {
+        error_log("DB CONNECTION ERROR: " . $e->getMessage());
+        die("Tidak dapat terhubung ke database.");
     }
-
-    $conn->set_charset("utf8mb4");
-    return $conn;
 }
 
+
+// -------------------------------
+// 4. AUTH HELPERS
+// -------------------------------
 function isLoggedIn() {
+    startSession();
     return isset($_SESSION['user_id']);
 }
 
 function getCurrentUser() {
-    if (!isLoggedIn()) {
+    startSession();
+
+    if (!isset($_SESSION['user_id'])) {
         return null;
     }
 
-    try {
-        $conn = getConnection();
-        $user_id = $_SESSION['user_id'];
+    $conn = getConnection();
+    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
 
-        $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
+    $stmt->close();
+    $conn->close();
 
-        $stmt->close();
-        $conn->close();
-
-        return $user;
-    } catch (Throwable $e) {
-        error_log("getCurrentUser error: " . $e->getMessage());
-        return null;
-    }
+    return $user;
 }
 
+
+// -------------------------------
+// 5. REDIRECT
+// -------------------------------
 function redirect($page) {
     header("Location: $page");
     exit();
