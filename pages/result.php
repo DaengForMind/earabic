@@ -8,6 +8,7 @@ if (!isLoggedIn()) {
     redirect('../index.php');
 }
 
+$score = isset($_GET['level']) ? intval($_GET['level']) : 1;
 $score = isset($_GET['score']) ? intval($_GET['score']) : 0;
 $total = isset($_GET['total']) ? intval($_GET['total']) : 10;
 $percentage = ($score / $total) * 100;
@@ -226,7 +227,7 @@ if ($percentage >= 90) $stars = 3;
         </div>
 
         <div class="button-group">
-            <a href="progress.php" class="btn-primary">Pilih Tema Lain</a>
+            <a href="themes.php?level=<?php echo $level; ?>" class="btn-primary">Pilih Tema Lain</a>
             <a href="progress.php" class="btn-secondary">Kembali ke Peta</a>
         </div>
     </div>
