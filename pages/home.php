@@ -231,7 +231,7 @@ $user = getCurrentUser();
             <div class="mascot-circle">
                 <div class="mascot-bg"></div>
                 <div class="mascot-inner">
-                    <img src="../assets/images/maskot.png" alt="Maskot Earabic" class="mascot-img">
+                    <img src="../assets/images/maskot.gif" alt="maskot" class="mascot-img">
                 </div>
             </div>
         </a>
