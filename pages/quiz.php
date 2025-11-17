@@ -817,7 +817,7 @@ $level_descriptions = [
                     body: `theme=${encodeURIComponent(theme)}&level=${level}&score=${score}&total=${questions.length}`
                 })
                 .then(() => {
-                    window.location.href = `result.php?score=${score}&total=${questions.length}`;
+                    window.location.href = `result.php?level=${level}&score=${score}&total=${questions.length}`;
                 });
         }
 
