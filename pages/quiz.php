@@ -433,7 +433,7 @@ $level_descriptions = [
     <div class="quiz-wrapper">
         <!-- Header -->
         <div class="header-section">
-            <a href="themes.php?level=<?php echo $level; ?>" class="back-btn">
+            <a href="#" id="btnBackToThemes" class="back-btn">
                 <i class="fas fa-arrow-left"></i>
             </a>
             <div class="progress-container">
@@ -461,68 +461,159 @@ $level_descriptions = [
         </div>
     </div>
 
+        </div>
+
     <script>
         const questions = <?php echo json_encode($questions); ?>;
         const quizType = '<?php echo $quiz_type; ?>';
         const userId = <?php echo $user['id']; ?>;
         const theme = '<?php echo addslashes($theme); ?>';
         const level = <?php echo $level; ?>;
-    
+
         let currentQuestion = 0;
         let score = 0;
         let currentAudio = null;
-    
-        // ==========================
-        //   RANDOMIZER (TAMBAHAN)
-        // ==========================
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
+        let quizStarted = true;
+
+        // ===== SOUND EFFECTS =====
+        const audioContext = new(window.AudioContext || window.webkitAudioContext)();
+
+        function playCorrectSound() {
+            // Suara benar - nada tinggi
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
         }
-    
+
+        function playWrongSound() {
+            // Suara salah - nada rendah
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 200;
+            oscillator.type = 'sawtooth';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+        }
+
+        function playSuccessSound() {
+            // Suara sukses - melodi naik
+            const notes = [523.25, 659.25, 783.99]; // C, E, G
+
+            notes.forEach((freq, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = freq;
+                oscillator.type = 'sine';
+
+                const startTime = audioContext.currentTime + (index * 0.15);
+                gainNode.gain.setValueAtTime(0.2, startTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+
+                oscillator.start(startTime);
+                oscillator.stop(startTime + 0.3);
+            });
+        }
+
+        // ===== DISABLE BACK BUTTON =====
+        // Prevent browser back
+        history.pushState(null, null, location.href);
+        window.onpopstate = function() {
+            if (quizStarted) {
+                history.pushState(null, null, location.href);
+                if (confirm('Kamu sedang mengerjakan quiz. Yakin ingin keluar? Progress akan hilang.')) {
+                    quizStarted = false;
+                    window.location.href = 'themes.php?level=<?php echo $level; ?>';
+                }
+            }
+        };
+
+        // Disable back button with confirmation
+        window.addEventListener('beforeunload', function(e) {
+            if (quizStarted && currentQuestion < questions.length) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
+
+        // Handle back button click
+        document.getElementById('btnBackToThemes')?.addEventListener('click', function(e) {
+            if (quizStarted) {
+                e.preventDefault();
+                if (confirm('Kamu sedang mengerjakan quiz. Yakin ingin keluar? Progress akan hilang.')) {
+                    quizStarted = false;
+                    window.location.href = 'themes.php?level=<?php echo $level; ?>';
+                }
+            }
+        });
+
         function updateProgress() {
             const progress = ((currentQuestion + 1) / questions.length) * 100;
             document.getElementById('progressBar').style.width = progress + '%';
             document.getElementById('progressText').textContent = `${currentQuestion + 1}/${questions.length}`;
         }
-    
+
         function playAudio(url) {
             const audioBtn = document.getElementById('audioBtn');
-    
+
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio = null;
             }
-    
+
             currentAudio = new Audio(url);
             audioBtn.classList.add('playing');
-    
+
             currentAudio.play();
-    
+
             currentAudio.onended = () => {
                 audioBtn.classList.remove('playing');
             };
         }
-    
+
         document.getElementById('audioBtn').addEventListener('click', function() {
             if (questions[currentQuestion]) {
                 playAudio(questions[currentQuestion].audio_url);
             }
         });
-    
+
         function loadQuestion() {
             if (currentQuestion >= questions.length) {
-                saveProgress();
+                quizStarted = false;
+                playSuccessSound(); // Suara sukses sebelum ke result
+                setTimeout(() => {
+                    saveProgress();
+                }, 1000);
                 return;
             }
-    
+
             updateProgress();
             const q = questions[currentQuestion];
             const container = document.getElementById('questionContainer');
-    
+
             if (quizType === 'mc') {
                 loadMultipleChoice(q, container);
             } else if (quizType === 'write') {
@@ -533,51 +624,44 @@ $level_descriptions = [
                 loadStoryQuestion(q, container);
             }
         }
-    
-        // ===================================
-        //   MULTIPLE CHOICE (SUDAH DIACAK)
-        // ===================================
+
         function loadMultipleChoice(q, container) {
-            let options = [
-                { text: q.option_a, isCorrect: q.option_a === q.correct_answer },
-                { text: q.option_b, isCorrect: q.option_b === q.correct_answer },
-                { text: q.option_c, isCorrect: q.option_c === q.correct_answer },
-                { text: q.option_d, isCorrect: q.option_d === q.correct_answer },
-            ];
-    
-            shuffleArray(options);
-    
+            const options = [q.option_a, q.option_b, q.option_c, q.option_d];
+
             container.innerHTML = `
-                <div class="options-grid" id="optionsGrid">
-                    ${options.map((opt, i) => `
-                        <button class="option-btn" data-index="${i}">
-                            <span class="option-text">${opt.text}</span>
-                        </button>
-                    `).join('')}
-                </div>
-            `;
-    
+            <div class="options-grid" id="optionsGrid">
+                ${options.map((opt, i) => `
+                    <button class="option-btn" data-index="${i}">
+                        <span class="option-text">${opt}</span>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
             document.querySelectorAll('.option-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const i = parseInt(this.dataset.index);
-                    const opt = options[i];
-    
+                    const selectedIndex = parseInt(this.dataset.index);
+                    const correctAnswer = q.correct_answer;
+                    const selectedAnswer = options[selectedIndex];
+
                     document.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'none');
-    
-                    if (opt.isCorrect) {
+
+                    if (selectedAnswer === correctAnswer) {
                         this.classList.add('correct');
+                        playCorrectSound(); // Suara benar
                         score++;
                         unlockMufrodat(q.audio_word, q.translation);
                     } else {
                         this.classList.add('incorrect');
+                        playWrongSound(); // Suara salah
+                        // Show correct answer
                         document.querySelectorAll('.option-btn').forEach(b => {
-                            const idx = parseInt(b.dataset.index);
-                            if (options[idx].isCorrect) {
+                            if (options[parseInt(b.dataset.index)] === correctAnswer) {
                                 b.classList.add('correct');
                             }
                         });
                     }
-    
+
                     setTimeout(() => {
                         currentQuestion++;
                         loadQuestion();
@@ -585,136 +669,126 @@ $level_descriptions = [
                 });
             });
         }
-    
-        // =============================
-        //   WRITE QUESTION (ASLI)
-        // =============================
+
         function loadWriteQuestion(q, container) {
             container.innerHTML = `
-                <form class="write-form" id="writeForm">
-                    <input type="text" class="write-input" id="writeInput" 
-                           placeholder="اكتب هنا..." dir="rtl" required>
-                    <button type="submit" class="submit-btn">
-                        <i class="fas fa-arrow-left"></i>
-                    </button>
-                </form>
-            `;
-    
+            <form class="write-form" id="writeForm">
+                <input type="text" class="write-input" id="writeInput" 
+                       placeholder="اكتب هنا..." dir="rtl" required>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+            </form>
+        `;
+
             document.getElementById('writeForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const input = document.getElementById('writeInput');
                 const userAnswer = input.value.trim();
                 const correctAnswer = q.correct_answer;
-    
+
                 input.disabled = true;
-    
+
                 if (userAnswer === correctAnswer) {
                     input.classList.add('correct');
+                    playCorrectSound(); // Suara benar
                     score++;
                     unlockMufrodat(q.audio_word, q.translation);
                 } else {
                     input.classList.add('incorrect');
+                    playWrongSound(); // Suara salah
                 }
-    
+
                 setTimeout(() => {
                     currentQuestion++;
                     loadQuestion();
                 }, 1500);
             });
         }
-    
-        // =============================
-        //   FILL QUESTION (ASLI)
-        // =============================
+
         function loadFillQuestion(q, container) {
             container.innerHTML = `
-                <div class="sentence-container">
-                    <span>${q.sentence_part1}</span>
-                    <span class="blank-space">.....</span>
-                    <span>${q.sentence_part2 || ''}</span>
-                </div>
-                <form class="write-form" id="fillForm">
-                    <input type="text" class="write-input" id="fillInput" 
-                           placeholder="اكتب الكلمة المفقودة..." dir="rtl" required>
-                    <button type="submit" class="submit-btn">
-                        <i class="fas fa-arrow-left"></i>
-                    </button>
-                </form>
-            `;
-    
+            <div class="sentence-container">
+                <span>${q.sentence_part1}</span>
+                <span class="blank-space">.....</span>
+                <span>${q.sentence_part2 || ''}</span>
+            </div>
+            <form class="write-form" id="fillForm">
+                <input type="text" class="write-input" id="fillInput" 
+                       placeholder="اكتب الكلمة المفقودة..." dir="rtl" required>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+            </form>
+        `;
+
             document.getElementById('fillForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const input = document.getElementById('fillInput');
                 const userAnswer = input.value.trim();
                 const correctAnswer = q.correct_answer;
-    
+
                 input.disabled = true;
-    
+
                 if (userAnswer === correctAnswer) {
                     input.classList.add('correct');
+                    playCorrectSound(); // Suara benar
                     score++;
                     unlockMufrodat(q.correct_answer, q.translation);
                 } else {
                     input.classList.add('incorrect');
+                    playWrongSound(); // Suara salah
                 }
-    
+
                 setTimeout(() => {
                     currentQuestion++;
                     loadQuestion();
                 }, 1500);
             });
         }
-    
-        // =======================================
-        //   STORY QUESTION (JUgA DIACAKKAN)
-        // =======================================
+
         function loadStoryQuestion(q, container) {
-            let options = [
-                { text: q.option_a, isCorrect: q.option_a === q.correct_answer },
-                { text: q.option_b, isCorrect: q.option_b === q.correct_answer },
-                { text: q.option_c, isCorrect: q.option_c === q.correct_answer },
-                { text: q.option_d, isCorrect: q.option_d === q.correct_answer }
-            ];
-    
-            shuffleArray(options);
-    
+            const options = [q.option_a, q.option_b, q.option_c, q.option_d];
+
             container.innerHTML = `
-                <div class="story-question">${q.question_text}</div>
-                <div class="story-options">
-                    ${options.map((opt, i) => `
-                        <button class="story-option" data-index="${i}">
-                            <span class="story-option-text">${opt.text}</span>
-                        </button>
-                    `).join('')}
-                </div>
-            `;
-    
+            <div class="story-question">${q.question_text}</div>
+            <div class="story-options">
+                ${options.map((opt, i) => `
+                    <button class="story-option" data-index="${i}">
+                        <span class="story-option-text">${opt}</span>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
             document.querySelectorAll('.story-option').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const i = parseInt(this.dataset.index);
-                    const opt = options[i];
-    
+                    const selectedIndex = parseInt(this.dataset.index);
+                    const correctAnswer = q.correct_answer;
+                    const selectedAnswer = options[selectedIndex];
+
                     document.querySelectorAll('.story-option').forEach(b => b.style.pointerEvents = 'none');
-    
-                    if (opt.isCorrect) {
+
+                    if (selectedAnswer === correctAnswer) {
                         this.classList.add('correct');
                         this.style.borderColor = '#22c55e';
                         this.style.backgroundColor = '#f0fdf4';
+                        playCorrectSound(); // Suara benar
                         score++;
                     } else {
                         this.classList.add('incorrect');
                         this.style.borderColor = '#ef4444';
                         this.style.backgroundColor = '#fef2f2';
-    
+                        playWrongSound(); // Suara salah
+                        // Show correct answer
                         document.querySelectorAll('.story-option').forEach(b => {
-                            const idx = parseInt(b.dataset.index);
-                            if (options[idx].isCorrect) {
+                            if (options[parseInt(b.dataset.index)] === correctAnswer) {
                                 b.style.borderColor = '#22c55e';
                                 b.style.backgroundColor = '#f0fdf4';
                             }
                         });
                     }
-    
+
                     setTimeout(() => {
                         currentQuestion++;
                         loadQuestion();
@@ -722,7 +796,7 @@ $level_descriptions = [
                 });
             });
         }
-    
+
         function unlockMufrodat(word, translation) {
             const audioUrl = questions[currentQuestion].audio_url;
             fetch('save_mufrodat.php', {
@@ -733,7 +807,7 @@ $level_descriptions = [
                 body: `word=${encodeURIComponent(word)}&translation=${encodeURIComponent(translation)}&audio_url=${encodeURIComponent(audioUrl)}`
             });
         }
-    
+
         function saveProgress() {
             fetch('save_progress.php', {
                     method: 'POST',
@@ -746,8 +820,8 @@ $level_descriptions = [
                     window.location.href = `result.php?score=${score}&total=${questions.length}`;
                 });
         }
-    
-        // Mulai quiz
+
+        // Start quiz
         loadQuestion();
     </script>
 </body>
