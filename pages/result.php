@@ -8,7 +8,7 @@ if (!isLoggedIn()) {
     redirect('../index.php');
 }
 
-$score = isset($_GET['level']) ? intval($_GET['level']) : 1;
+$level = isset($_GET['level']) ? intval($_GET['level']) : 1;
 $score = isset($_GET['score']) ? intval($_GET['score']) : 0;
 $total = isset($_GET['total']) ? intval($_GET['total']) : 10;
 $percentage = ($score / $total) * 100;
