@@ -541,7 +541,7 @@ $conn->close();
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-        <a href="home.php" class="nav-item">
+        <a href="progress.php" class="nav-item">
             <div class="nav-icon-bg">
                 <i class="fas fa-home nav-icon"></i>
             </div>
