@@ -295,6 +295,59 @@ $themes = [
                 font-size: 8rem;
             }
         }
+
+        /* Mascot (mobile-first) */
+        .mascot {
+            position: fixed;
+            left: 12px;
+            bottom: 96px;
+            /* di atas bottom-nav (height:80px + margin) */
+            width: 64px;
+            height: 64px;
+            z-index: 60;
+            /* > .bottom-nav (50) */
+            pointer-events: none;
+            /* tidak mengganggu interaksi */
+            -webkit-user-select: none;
+            user-select: none;
+            transform-origin: 50% 50%;
+            animation: mascot-bob 3s ease-in-out infinite;
+        }
+
+        /* sedikit lebih besar pada layar >= 640px */
+        @media (min-width: 640px) {
+            .mascot {
+                left: 24px;
+                bottom: 110px;
+                width: 88px;
+                height: 88px;
+            }
+        }
+
+        /* bobbing animation — durasi 3s loop */
+        @keyframes mascot-bob {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translateY(-6px) scale(1.02);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Respect prefers-reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+            .mascot {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -350,5 +403,8 @@ $themes = [
             </div>
         </a>
     </nav>
+
+    <!-- Mascot GIF (fixed left-bottom, mobile-first) -->
+    <img src="../assets/images/maskot.gif" alt="Maskot" class="mascot" aria-hidden="true" loading="lazy">
 </body>
 </html>
