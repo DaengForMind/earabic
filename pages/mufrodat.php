@@ -380,6 +380,10 @@ $colors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'indigo', 'teal']
         </a>
     </nav>
 
+    <!-- Mascot GIF (fixed left-bottom, mobile-first) -->
+    <img src="../assets/images/maskot.gif" alt="Maskot" class="mascot" aria-hidden="true" loading="lazy">
+
+
     <script>
         let currentAudio = null;
         let currentButton = null;
