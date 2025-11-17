@@ -21,6 +21,14 @@ $total_completed = $progress_result['total_completed'];
 $cumulative_progress = min(100, ($total_completed / 40) * 100); // 40 = total semua level & tema
 $stmt->close();
 
+// Hitung total XP user
+$stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$xp_result = $stmt->get_result()->fetch_assoc();
+$total_xp = $xp_result['total_completed'] * 25; // 25 XP per tema
+$stmt->close();
+
 // Get leaderboard data
 $leaderboard_query = "
     SELECT u.id, u.nama, u.avatar_initial, u.motivasi, 
@@ -520,26 +528,53 @@ $conn->close();
                 
                 <a href="themes.php?level=1" class="level-item">
                     <div class="level-icon completed">
-                        <i class="fas fa-check"></i>
+                        <i class="fa-solid fa-ear-listen"></i>
                     </div>
                     <div class="level-info">
-                        <p class="level-status completed">SELESAI</p>
+                        <p class="level-status">TERBUKA</p>
                         <h3 class="level-title">Tingkat 1</h3>
                         <p class="level-desc">Menyimak lalu memilih pilihan ganda sesuai dengan apa yang di dengar</p>
                     </div>
                 </a>
 
+                <!--Jika xp memenuhi level 2-->
+                <?php if ($total_xp >= 100): ?>
                 <a href="themes.php?level=2" class="level-item">
-                    <div class="level-icon active">
+                    <div class="level-icon completed">
                         <i class="fas fa-pencil-alt"></i>
                     </div>
                     <div class="level-info">
-                        <p class="level-status active">LANJUTKAN</p>
+                        <p class="level-status ">TERBUKA</p>
                         <h3 class="level-title">Tingkat 2</h3>
                         <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
                     </div>
                 </a>
+                <?php else: ?>
+                <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                    <div class="level-icon locked">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <div class="level-info">
+                        <p class="level-status locked">TERKUNCI</p>
+                        <h3 class="level-title">Tingkat 2</h3>
+                        <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
+                    </div>
+                </a>
+                <?php endif; ?>
 
+                <!--Jika xp memenuhi level 3-->
+                <?php if ($total_xp >= 200): ?>
+                <a href="themes.php?level=3" class="level-item">
+                    <div class="level-icon completed">
+                        <i class="fa-solid fa-check-to-slot"></i>
+                    </div>
+                    <div class="level-info">
+                        <p class="level-status">TERBUKA</p>
+                        <h3 class="level-title">Tingkat 3</h3>
+                        <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
+                    </div>
+                </a>
+                <?php else: ?>
                 <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                     <div class="level-icon locked">
                         <i class="fas fa-lock"></i>
@@ -550,10 +585,24 @@ $conn->close();
                         <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
                     </div>
                 </a>
+                <?php endif; ?>
 
+                <!--Jika xp memenuhi level 4-->
+                <?php if ($total_xp >= 400): ?>
+                <a href="themes.php?level=4" class="level-item">
+                    <div class="level-icon completed">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <div class="level-info">
+                        <p class="level-status">TERBUKA</p>
+                        <h3 class="level-title">Tingkat 4</h3>
+                        <p class="level-desc">Menyimak dan memahami isi cerita</p>
+                    </div>
+                </a>
+                <?php else: ?>
                 <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                     <div class="level-icon locked">
-                        <i class="fas fa-book-open"></i>
+                        <i class="fas fa-lock"></i>
                     </div>
                     <div class="level-info">
                         <p class="level-status locked">TERKUNCI</p>
@@ -561,6 +610,7 @@ $conn->close();
                         <p class="level-desc">Menyimak dan memahami isi cerita</p>
                     </div>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
 
