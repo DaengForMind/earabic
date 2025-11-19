@@ -10,9 +10,17 @@ if (!isLoggedIn()) {
 
 $user = getCurrentUser();
 
-// Tentukan foto profile
-if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
-    $profile_photo = '../' . $user['photo'];
+// **PERBAIKI PATH FOTO PROFILE**
+$base_url = '../';
+if (!empty($user['photo'])) {
+    // Cek file exists dengan path yang benar
+    $photo_path = '../' . $user['photo'];
+    if (file_exists($photo_path)) {
+        $profile_photo = $photo_path;
+    } else {
+        // Fallback ke avatar initial
+        $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . $user['avatar_initial'];
+    }
 } else {
     $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . $user['avatar_initial'];
 }
