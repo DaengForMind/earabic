@@ -583,7 +583,7 @@ if ($conn) $conn->close();
                 </a>
 
                 <!--Jika xp memenuhi level 2-->
-                <?php// if ($total_xp >= 100): ?>
+                <?php if ($total_xp >= 100): ?>
                     <a href="themes.php?level=2" class="level-item">
                         <div class="level-icon completed">
                             <i class="fas fa-pencil-alt"></i>
@@ -594,8 +594,8 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
                         </div>
                     </a>
-                <?php// else: ?>
-                    <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                <?php else: ?>
+                    <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                         <div class="level-icon locked">
                             <i class="fas fa-lock"></i>
                         </div>
@@ -604,8 +604,8 @@ if ($conn) $conn->close();
                             <h3 class="level-title">Tingkat 2</h3>
                             <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
                         </div>
-                    </a> -->
-                <!-- endif; -->
+                    </a>
+                <?php endif; ?>
 
                 <!--Jika xp memenuhi level 3-->
                 <?php// if ($total_xp >= 200): ?>
@@ -619,8 +619,8 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
                         </div>
                     </a>
-                <?php// else: ?>
-                    <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                <?php else: ?>
+                    <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                         <div class="level-icon locked">
                             <i class="fas fa-lock"></i>
                         </div>
@@ -629,11 +629,11 @@ if ($conn) $conn->close();
                             <h3 class="level-title">Tingkat 3</h3>
                             <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
                         </div>
-                    </a> -->
-                <!-- endif; -->
+                    </a>
+                <?php endif; ?>
 
                 <!--Jika xp memenuhi level 4-->
-                <?php// if ($total_xp >= 400): ?>
+                <?php if ($total_xp >= 400): ?>
                     <a href="themes.php?level=4" class="level-item">
                         <div class="level-icon completed">
                             <i class="fas fa-book-open"></i>
@@ -644,8 +644,8 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak dan memahami isi cerita</p>
                         </div>
                     </a>
-                <?php// else: ?>
-                    <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                <?php else: ?>
+                    <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                         <div class="level-icon locked">
                             <i class="fas fa-lock"></i>
                         </div>
@@ -654,8 +654,8 @@ if ($conn) $conn->close();
                             <h3 class="level-title">Tingkat 4</h3>
                             <p class="level-desc">Menyimak dan memahami isi cerita</p>
                         </div>
-                    </a> -->
-                <!-- endif; -->
+                    </a>
+                <?php endif; ?>
             </div>
         </div>
 
