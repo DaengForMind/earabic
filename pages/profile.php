@@ -1,7 +1,41 @@
 <?php
 // pages/profile.php
+
+// Start session
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once '../config/database.php';
-startSession();
+
+// Simple authentication check
+function isLoggedIn() {
+    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+}
+
+// Simple redirect function
+function redirect($url) {
+    header("Location: $url");
+    exit();
+}
+
+// Get current user data
+function getCurrentUser() {
+    if (!isset($_SESSION['user_id'])) {
+        return null;
+    }
+    
+    $conn = getConnection();
+    $stmt = $conn->prepare("SELECT id, nama, email, instansi, tanggal_lahir, motivasi, photo FROM users WHERE id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    
+    return $user;
+}
 
 // Cek login
 if (!isLoggedIn()) {
@@ -10,27 +44,21 @@ if (!isLoggedIn()) {
 
 $user = getCurrentUser();
 
-// **FUNGSI UNTUK MENDAPATKAN PATH FOTO YANG BENAR**
-function getProfilePhoto($user) {
-    // Jika ada photo di database
-    if (!empty($user['photo'])) {
-        $photo_path = '../' . $user['photo'];
-        
-        // Cek jika file benar-benar ada
-        if (file_exists($photo_path)) {
-            return $photo_path;
-        } else {
-            error_log("Photo file not found: " . $photo_path);
-        }
-    }
-    
-    // Fallback ke avatar initial
-    $avatar_initial = substr($user['nama'], 0, 1);
-    return 'https://placehold.co/128x128/312e81/ffffff?text=' . strtoupper($avatar_initial);
+if (!$user) {
+    // Logout jika user tidak ditemukan
+    session_destroy();
+    redirect('../index.php');
 }
 
-$profile_photo = getProfilePhoto($user);
+// Tentukan foto profile
+if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
+    $profile_photo = '../' . $user['photo'];
+} else {
+    $avatar_initial = substr($user['nama'], 0, 1);
+    $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . strtoupper($avatar_initial);
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -454,7 +482,7 @@ $profile_photo = getProfilePhoto($user);
         <div class="profile-container">
             <!-- Avatar -->
             <div class="avatar-section">
-                <img src="<?php echo htmlspecialchars($profile_photo); ?>" 
+                <img src="<?php echo $profile_photo; ?>" 
                      alt="Profile Picture" 
                      class="avatar-img"
                      id="profileImage">
@@ -601,7 +629,8 @@ $profile_photo = getProfilePhoto($user);
                 
                 if (data.success) {
                     alert('Foto berhasil diupload!');
-                    document.getElementById('profileImage').src = data.photo_url + '?t=' + new Date().getTime();
+                    // Update image dengan cache busting
+                    document.getElementById('profileImage').src = '../' + data.photo_url + '?t=' + new Date().getTime();
                 } else {
                     alert('Error: ' + data.message);
                     // Revert to old image
