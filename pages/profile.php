@@ -416,6 +416,53 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
                 font-size: 8rem;
             }
         }
+
+        /* Mascot */
+        .mascot {
+            position: fixed;
+            left: 12px;
+            bottom: 96px;
+            width: 64px;
+            height: 64px;
+            z-index: 60;
+            pointer-events: none;
+            -webkit-user-select: none;
+            user-select: none;
+            transform-origin: 50% 50%;
+            animation: mascot-bob 3s ease-in-out infinite;
+        }
+
+        @media (min-width: 640px) {
+            .mascot {
+                left: 24px;
+                bottom: 110px;
+                width: 88px;
+                height: 88px;
+            }
+        }
+
+        @keyframes mascot-bob {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translateY(-6px) scale(1.02);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .mascot {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -529,7 +576,7 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-        <a href="home.php" class="nav-item">
+        <a href="progress.php" class="nav-item">
             <div class="nav-icon-bg">
                 <i class="fas fa-home nav-icon"></i>
             </div>
@@ -545,6 +592,8 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
             </div>
         </a>
     </nav>
+
+    <img src="../assets/images/maskot.gif" alt="Maskot" class="mascot" aria-hidden="true" loading="lazy">
 
     <script>
         // Upload Photo
