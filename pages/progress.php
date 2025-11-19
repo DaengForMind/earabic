@@ -605,7 +605,7 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
                         </div>
                     </a> -->
-                <?php// endif; ?>
+                <!-- endif; -->
 
                 <!--Jika xp memenuhi level 3-->
                 <?php// if ($total_xp >= 200): ?>
@@ -630,7 +630,7 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
                         </div>
                     </a> -->
-                <?php// endif; ?>
+                <!-- endif; -->
 
                 <!--Jika xp memenuhi level 4-->
                 <?php// if ($total_xp >= 400): ?>
@@ -655,7 +655,7 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak dan memahami isi cerita</p>
                         </div>
                     </a> -->
-                <?php// endif; ?>
+                <!-- endif; -->
             </div>
         </div>
 
