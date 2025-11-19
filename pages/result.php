@@ -277,6 +277,17 @@ if ($percentage >= 90) $stars = 3;
         <div class="score-card">
             <p class="score-label">Skor Kamu</p>
             <p class="score-value"><?php echo $score; ?>/<?php echo $total; ?></p>
+            
+            <!-- XP Earned -->
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    <i class="fas fa-star" style="color: #facc15; font-size: 1.25rem;"></i>
+                    <span style="font-size: 1.125rem; font-weight: 600; color: #4f46e5;">+<?php echo $score; ?> XP</span>
+                </div>
+                <p style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
+                    Kamu mendapatkan <?php echo $score; ?> XP dari jawaban benar!
+                </p>
+            </div>
         </div>
 
         <div class="button-group">
