@@ -1,8 +1,8 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "chmod -R 755 uploads/"
+    "builder": "nixpacks",
+    "buildCommand": "mkdir -p uploads/profiles && chmod -R 755 uploads/"
   },
   "deploy": {
     "startCommand": "php -S 0.0.0.0:$PORT -t .",
