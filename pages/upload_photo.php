@@ -44,7 +44,7 @@ if (!in_array($mime, $allowed_types)) {
 
 // **RAILWAY SPECIFIC: Gunakan absolute path yang benar**
 $base_dir = $_SERVER['RAILWAY_VOLUME_MOUNT_PATH'] ?? $_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/../';
-$upload_dir = $base_dir . 'uploads/profiles/';
+$upload_dir = $base_dir . '../uploads/profiles/';
 
 // Buat directory jika belum ada
 if (!is_dir($upload_dir)) {
@@ -106,7 +106,7 @@ try {
     }
 
     // Save new photo path (relative path untuk web)
-    $photo_db_path = 'uploads/profiles/' . $filename;
+    $photo_db_path = '../uploads/profiles/' . $filename;
     
     $stmt = $conn->prepare("UPDATE users SET photo = ? WHERE id = ?");
     $stmt->bind_param("si", $photo_db_path, $user_id);
