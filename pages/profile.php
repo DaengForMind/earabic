@@ -9,6 +9,13 @@ if (!isLoggedIn()) {
 }
 
 $user = getCurrentUser();
+
+// Tentukan foto profile
+if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
+    $profile_photo = '../' . $user['photo'];
+} else {
+    $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . $user['avatar_initial'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -21,23 +28,6 @@ $user = getCurrentUser();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Amiri:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4f46e5">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Earabic">
-    <link rel="apple-touch-icon" href="assets/icon-192.png">
-    
-    <!-- Register Service Worker -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then(reg => console.log('Service Worker registered'))
-          .catch(err => console.log('Service Worker registration failed'));
-      }
-    </script>
     <style>
         body {
             margin: 0;
@@ -74,6 +64,37 @@ $user = getCurrentUser();
             border: 4px solid white;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             object-fit: cover;
+        }
+        
+        .edit-photo-btn {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #4f46e5;
+            color: white;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+        
+        .edit-photo-btn:hover {
+            background-color: #4338ca;
+            transform: scale(1.1);
+        }
+        
+        .edit-photo-btn i {
+            font-size: 1rem;
+        }
+        
+        #photoInput {
+            display: none;
         }
         
         .profile-card {
@@ -159,6 +180,41 @@ $user = getCurrentUser();
         
         .logout-btn i {
             margin-right: 0.5rem;
+        }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: white;
+            margin-top: 1rem;
+            font-weight: 600;
         }
         
         /* Modal Styles */
@@ -360,62 +416,15 @@ $user = getCurrentUser();
                 font-size: 8rem;
             }
         }
-
-        /* Mascot (mobile-first) */
-        .mascot {
-            position: fixed;
-            left: 12px;
-            bottom: 96px;
-            /* di atas bottom-nav (height:80px + margin) */
-            width: 64px;
-            height: 64px;
-            z-index: 60;
-            /* > .bottom-nav (50) */
-            pointer-events: none;
-            /* tidak mengganggu interaksi */
-            -webkit-user-select: none;
-            user-select: none;
-            transform-origin: 50% 50%;
-            animation: mascot-bob 3s ease-in-out infinite;
-        }
-
-        /* sedikit lebih besar pada layar >= 640px */
-        @media (min-width: 640px) {
-            .mascot {
-                left: 24px;
-                bottom: 110px;
-                width: 88px;
-                height: 88px;
-            }
-        }
-
-        /* bobbing animation — durasi 3s loop */
-        @keyframes mascot-bob {
-            0% {
-                transform: translateY(0) scale(1);
-                opacity: 1;
-            }
-
-            50% {
-                transform: translateY(-6px) scale(1.02);
-                opacity: 1;
-            }
-
-            100% {
-                transform: translateY(0) scale(1);
-                opacity: 1;
-            }
-        }
-
-        /* Respect prefers-reduced-motion */
-        @media (prefers-reduced-motion: reduce) {
-            .mascot {
-                animation: none;
-            }
-        }
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p class="loading-text">Mengupload foto...</p>
+    </div>
+
     <!-- Background Decorative Characters -->
     <div style="position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;">
         <span class="bg-char" style="top: 5%; left: 5%; transform: rotate(-15deg);">س</span>
@@ -431,9 +440,14 @@ $user = getCurrentUser();
         <div class="profile-container">
             <!-- Avatar -->
             <div class="avatar-section">
-                <img src="https://placehold.co/128x128/312e81/ffffff?text=<?php echo $user['avatar_initial']; ?>" 
+                <img src="<?php echo $profile_photo; ?>" 
                      alt="Profile Picture" 
-                     class="avatar-img">
+                     class="avatar-img"
+                     id="profileImage">
+                <button class="edit-photo-btn" onclick="document.getElementById('photoInput').click()">
+                    <i class="fas fa-camera"></i>
+                </button>
+                <input type="file" id="photoInput" accept="image/*">
             </div>
 
             <!-- Profile Card -->
@@ -515,7 +529,7 @@ $user = getCurrentUser();
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-        <a href="progress.php" class="nav-item">
+        <a href="home.php" class="nav-item">
             <div class="nav-icon-bg">
                 <i class="fas fa-home nav-icon"></i>
             </div>
@@ -532,10 +546,62 @@ $user = getCurrentUser();
         </a>
     </nav>
 
-    <!-- Mascot GIF (fixed left-bottom, mobile-first) -->
-    <img src="../assets/images/maskot.gif" alt="Maskot" class="mascot" aria-hidden="true" loading="lazy">
-
     <script>
+        // Upload Photo
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.match('image.*')) {
+                alert('File harus berupa gambar!');
+                return;
+            }
+
+            // Validate file size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ukuran file maksimal 5MB!');
+                return;
+            }
+
+            // Preview image
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                document.getElementById('profileImage').src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Upload to server
+            const formData = new FormData();
+            formData.append('photo', file);
+
+            document.getElementById('loadingOverlay').classList.add('active');
+
+            fetch('upload_photo.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingOverlay').classList.remove('active');
+                
+                if (data.success) {
+                    alert('Foto berhasil diupload!');
+                    document.getElementById('profileImage').src = data.photo_url + '?t=' + new Date().getTime();
+                } else {
+                    alert('Error: ' + data.message);
+                    // Revert to old image
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.remove('active');
+                console.error('Error:', error);
+                alert('Terjadi kesalahan. Silakan coba lagi.');
+                location.reload();
+            });
+        });
+
         function openEditModal() {
             document.getElementById('editModal').classList.add('active');
         }
