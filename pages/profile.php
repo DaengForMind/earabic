@@ -548,35 +548,86 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
 
     <script>
         // Upload Photo
+        // Upload Photo with Auto Compression
         document.getElementById('photoInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
+        
             // Validate file type
             if (!file.type.match('image.*')) {
                 alert('File harus berupa gambar!');
                 return;
             }
-
-            // Validate file size (5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('Ukuran file maksimal 5MB!');
-                return;
-            }
-
-            // Preview image
+        
+            // Show loading
+            document.getElementById('loadingOverlay').classList.add('active');
+        
+            // Compress and upload
+            compressAndUpload(file);
+        });
+        
+        function compressAndUpload(file) {
             const reader = new FileReader();
+            
             reader.onload = function(event) {
-                document.getElementById('profileImage').src = event.target.result;
+                const img = new Image();
+                
+                img.onload = function() {
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Calculate new dimensions (max 800x800)
+                    let width = img.width;
+                    let height = img.height;
+                    const maxSize = 800;
+                    
+                    if (width > height && width > maxSize) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw resized image
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to blob with quality adjustment
+                    canvas.toBlob(function(blob) {
+                        // Check size and adjust quality if needed
+                        if (blob.size > 1.8 * 1024 * 1024) {
+                            // If still too large, compress more
+                            canvas.toBlob(function(blob2) {
+                                uploadToServer(blob2);
+                            }, 'image/jpeg', 0.6);
+                        } else {
+                            uploadToServer(blob);
+                        }
+                    }, 'image/jpeg', 0.8);
+                };
+                
+                img.src = event.target.result;
             };
+            
             reader.readAsDataURL(file);
-
+        }
+        
+        function uploadToServer(blob) {
+            // Preview image
+            const previewReader = new FileReader();
+            previewReader.onload = function(e) {
+                document.getElementById('profileImage').src = e.target.result;
+            };
+            previewReader.readAsDataURL(blob);
+        
             // Upload to server
             const formData = new FormData();
-            formData.append('photo', file);
-
-            document.getElementById('loadingOverlay').classList.add('active');
-
+            formData.append('photo', blob, 'profile.jpg');
+        
             fetch('upload_photo.php', {
                 method: 'POST',
                 body: formData
@@ -590,7 +641,6 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
                     document.getElementById('profileImage').src = data.photo_url + '?t=' + new Date().getTime();
                 } else {
                     alert('Error: ' + data.message);
-                    // Revert to old image
                     location.reload();
                 }
             })
@@ -600,7 +650,7 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
                 alert('Terjadi kesalahan. Silakan coba lagi.');
                 location.reload();
             });
-        });
+        }
 
         function openEditModal() {
             document.getElementById('editModal').classList.add('active');
