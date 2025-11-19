@@ -1,7 +1,6 @@
 <?php
 // pages/upload_photo.php
 require_once '../config/database.php';
-require_once '../config/functions.php'; // jika ada functions.php
 startSession();
 
 header('Content-Type: application/json');
@@ -12,7 +11,7 @@ if (!isLoggedIn()) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_FILES['photo'])) {
-    echo json_encode(['success' => false, 'message' => 'Tidak ada file yang diupload']);
+    echo json_encode(['success' => false, 'message' => 'No file uploaded']);
     exit();
 }
 
@@ -21,22 +20,11 @@ $file = $_FILES['photo'];
 
 // Check upload error
 if ($file['error'] !== UPLOAD_ERR_OK) {
-    $error_messages = [
-        UPLOAD_ERR_INI_SIZE => 'File terlalu besar',
-        UPLOAD_ERR_FORM_SIZE => 'File terlalu besar',
-        UPLOAD_ERR_PARTIAL => 'File hanya terupload sebagian',
-        UPLOAD_ERR_NO_FILE => 'Tidak ada file yang dipilih',
-        UPLOAD_ERR_NO_TMP_DIR => 'Folder temporary tidak ada',
-        UPLOAD_ERR_CANT_WRITE => 'Gagal menulis file',
-        UPLOAD_ERR_EXTENSION => 'Upload dihentikan oleh extension PHP'
-    ];
-    
-    $message = $error_messages[$file['error']] ?? 'Unknown error: ' . $file['error'];
-    echo json_encode(['success' => false, 'message' => $message]);
+    echo json_encode(['success' => false, 'message' => 'Upload error: ' . $file['error']]);
     exit();
 }
 
-// Validate size (5MB max)
+// Validate size
 $max_size = 5 * 1024 * 1024;
 if ($file['size'] > $max_size) {
     echo json_encode(['success' => false, 'message' => 'Ukuran file terlalu besar. Maksimal 5MB']);
@@ -54,14 +42,9 @@ if (!in_array($mime, $allowed_types)) {
     exit();
 }
 
-// **RAILWAY SPECIFIC: Setup upload directory**
-// Di Railway, gunakan path relative dari root project
-$base_dir = __DIR__ . '/../'; // Naik ke root dari pages/
+// **RAILWAY SPECIFIC: Gunakan absolute path yang benar**
+$base_dir = $_SERVER['RAILWAY_VOLUME_MOUNT_PATH'] ?? $_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/../';
 $upload_dir = $base_dir . 'uploads/profiles/';
-
-// Debug info (bisa dihapus setelah fix)
-error_log("Base dir: " . $base_dir);
-error_log("Upload dir: " . $upload_dir);
 
 // Buat directory jika belum ada
 if (!is_dir($upload_dir)) {
@@ -75,10 +58,10 @@ if (!is_dir($upload_dir)) {
 // Cek jika directory writable
 if (!is_writable($upload_dir)) {
     // Coba fix permission
-    @chmod($upload_dir, 0755);
+    chmod($upload_dir, 0755);
     if (!is_writable($upload_dir)) {
         error_log("Directory not writable: " . $upload_dir);
-        echo json_encode(['success' => false, 'message' => 'Direktori upload tidak bisa ditulis. Periksa permission.']);
+        echo json_encode(['success' => false, 'message' => 'Direktori tidak bisa ditulis. Permission denied.']);
         exit();
     }
 }
@@ -86,7 +69,7 @@ if (!is_writable($upload_dir)) {
 // Generate filename
 $extension = match($mime) {
     'image/jpeg' => 'jpg',
-    'image/png' => 'png', 
+    'image/png' => 'png',
     'image/gif' => 'gif',
     'image/webp' => 'webp',
     default => 'jpg'
@@ -97,7 +80,7 @@ $filepath = $upload_dir . $filename;
 
 // Move uploaded file
 if (!move_uploaded_file($file['tmp_name'], $filepath)) {
-    error_log("Move uploaded file failed: " . $file['tmp_name'] . " to " . $filepath);
+    error_log("Move uploaded file failed. Tmp: " . $file['tmp_name'] . " -> Dest: " . $filepath);
     echo json_encode(['success' => false, 'message' => 'Gagal menyimpan file']);
     exit();
 }
@@ -112,12 +95,11 @@ try {
     $stmt->execute();
     $result = $stmt->get_result();
     $old_data = $result->fetch_assoc();
-    $old_photo = $old_data['photo'] ?? null;
     $stmt->close();
 
     // Delete old photo if exists
-    if (!empty($old_photo)) {
-        $old_file_path = $base_dir . $old_photo;
+    if (!empty($old_data['photo'])) {
+        $old_file_path = $base_dir . $old_data['photo'];
         if (file_exists($old_file_path) && is_file($old_file_path)) {
             @unlink($old_file_path);
         }
@@ -148,6 +130,6 @@ try {
     // Rollback file
     @unlink($filepath);
     error_log("Database error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'Error database: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Error database']);
 }
 ?>
