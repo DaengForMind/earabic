@@ -10,24 +10,26 @@ if (!isLoggedIn()) {
 
 $user = getCurrentUser();
 
-// **FIX PATH UNTUK FOTO PROFILE**
-$base_path = '../';
-if (!empty($user['photo'])) {
-    $photo_full_path = $base_path . $user['photo'];
-    
-    // Cek jika file benar-benar ada
-    if (file_exists($photo_full_path)) {
-        $profile_photo = $photo_full_path;
-    } else {
-        // Fallback ke avatar initial
-        $avatar_initial = substr($user['nama'], 0, 1); // ambil inisial nama
-        $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . strtoupper($avatar_initial);
+// **FUNGSI UNTUK MENDAPATKAN PATH FOTO YANG BENAR**
+function getProfilePhoto($user) {
+    // Jika ada photo di database
+    if (!empty($user['photo'])) {
+        $photo_path = '../' . $user['photo'];
+        
+        // Cek jika file benar-benar ada
+        if (file_exists($photo_path)) {
+            return $photo_path;
+        } else {
+            error_log("Photo file not found: " . $photo_path);
+        }
     }
-} else {
-    // Jika tidak ada foto, gunakan avatar initial
+    
+    // Fallback ke avatar initial
     $avatar_initial = substr($user['nama'], 0, 1);
-    $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . strtoupper($avatar_initial);
+    return 'https://placehold.co/128x128/312e81/ffffff?text=' . strtoupper($avatar_initial);
 }
+
+$profile_photo = getProfilePhoto($user);
 ?>
 <!DOCTYPE html>
 <html lang="id">
