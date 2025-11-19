@@ -42,12 +42,22 @@ try {
 
 // Hitung total progress user (defensif)
 try {
-    $stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
+    // Hitung total progress user berdasarkan skor benar
+    $user_id = $user['id'];
+    $stmt = $conn->prepare("
+        SELECT 
+            COALESCE(SUM(score), 0) as total_score,
+            COALESCE(COUNT(*), 0) as total_attempts,
+            COALESCE((SUM(score) / (COUNT(*) * 10)) * 100, 0) as cumulative_progress
+        FROM user_progress 
+        WHERE user_id = ?
+    ");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $progress_result = $stmt->get_result()->fetch_assoc();
-    $total_completed = (int)($progress_result['total_completed'] ?? 0);
-    $cumulative_progress = min(100, ($total_completed / 40) * 100); // 40 = total semua level & tema
+    $total_score = $progress_result['total_score'];
+    $total_attempts = $progress_result['total_attempts'];
+    $cumulative_progress = min(100, $progress_result['cumulative_progress']);
     $stmt->close();
 } catch (Throwable $e) {
     error_log("Query error (user progress) in progress.php: " . $e->getMessage());
@@ -55,26 +65,37 @@ try {
     $cumulative_progress = 0;
 }
 
-// Hitung total XP user (defensif)
-try {
-    $stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $xp_result = $stmt->get_result()->fetch_assoc();
-    $total_xp = (int)($xp_result['total_completed'] ?? 0) * 25; // 25 XP per tema
-    $stmt->close();
-} catch (Throwable $e) {
-    error_log("Query error (user xp) in progress.php: " . $e->getMessage());
-    $total_xp = 0;
+// Sistem Level Unlock berdasarkan XP
+$level_requirements = [
+    1 => 0,      // Level 1: Selalu unlock
+    2 => 20,     // Level 2: Butuh 20 XP (2 tema x 10 soal benar)
+    3 => 60,     // Level 3: Butuh 60 XP (6 tema x 10 soal benar)
+    4 => 120     // Level 4: Butuh 120 XP (12 tema x 10 soal benar)
+];
+
+function isLevelUnlocked($level, $total_xp, $level_requirements) {
+    return $total_xp >= $level_requirements[$level];
+}
+
+// Tentukan level saat ini
+$current_unlocked_level = 1;
+foreach ($level_requirements as $lvl => $required_xp) {
+    if ($total_score >= $required_xp) {
+        $current_unlocked_level = $lvl;
+    }
 }
 
 // Ambil leaderboard (defensif, sertakan kolom photo)
 $leaderboard = [];
 try {
+    // Get leaderboard data - XP berdasarkan skor benar
     $leaderboard_query = "
         SELECT u.id, u.nama, u.avatar_initial, u.motivasi, u.photo,
-               COUNT(up.id) * 25 as xp,
-               (COUNT(up.id) / 40) * 100 as progress
+               COALESCE(SUM(up.score), 0) as xp,
+               COALESCE(
+                   (SUM(up.score) / (COUNT(up.id) * 10)) * 100, 
+                   0
+               ) as progress
         FROM users u
         LEFT JOIN user_progress up ON u.id = up.user_id
         GROUP BY u.id
@@ -526,6 +547,12 @@ if ($conn) $conn->close();
                 animation: none;
             }
         }
+
+        .level-locked {
+            pointer-events: none;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -562,7 +589,20 @@ if ($conn) $conn->close();
                 </svg>
                 <span class="progress-text" id="progressText">0%</span>
             </div>
-            <p>Tingkatkan progresmu!</p>
+            <!-- XP Display -->
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <div style="display: flex; justify-content: space-around; text-align: center;">
+                    <div>
+                        <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Total XP</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #4f46e5;"><?php echo $total_score; ?></p>
+                    </div>
+                    <div>
+                        <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Quiz Selesai</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #22c55e;"><?php echo $total_attempts; ?></p>
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top: 1rem;">Tingkatkan progresmu!</p>
         </div>
 
         <!-- Level Map -->
@@ -571,86 +611,72 @@ if ($conn) $conn->close();
             <div class="level-path">
                 <div class="level-line"></div>
 
+                <!-- Level 1 -->
                 <a href="themes.php?level=1" class="level-item">
-                    <div class="level-icon completed">
-                        <i class="fa-solid fa-ear-listen"></i>
+                    <div class="level-icon <?php echo isLevelUnlocked(1, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
+                        <i class="fas fa-check"></i>
                     </div>
                     <div class="level-info">
-                        <p class="level-status">TERBUKA</p>
+                        <p class="level-status <?php echo isLevelUnlocked(1, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
+                            <?php echo isLevelUnlocked(1, $total_score, $level_requirements) ? 'TERSEDIA' : 'TERKUNCI'; ?>
+                        </p>
                         <h3 class="level-title">Tingkat 1</h3>
                         <p class="level-desc">Menyimak lalu memilih pilihan ganda sesuai dengan apa yang di dengar</p>
                     </div>
                 </a>
-
-                <!--Jika xp memenuhi level 2-->
-                    <a href="themes.php?level=2" class="level-item">
-                        <div class="level-icon completed">
-                            <i class="fas fa-pencil-alt"></i>
-                        </div>
-                        <div class="level-info">
-                            <p class="level-status ">TERBUKA</p>
-                            <h3 class="level-title">Tingkat 2</h3>
-                            <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
-                        </div>
-                    </a>
-                    <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
-                        <div class="level-icon locked">
-                            <i class="fas fa-lock"></i>
-                        </div>
-                        <div class="level-info">
-                            <p class="level-status locked">TERKUNCI</p>
-                            <h3 class="level-title">Tingkat 2</h3>
-                            <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
-                        </div>
-                    </a> -->
-                <!-- endif; -->
-
-                <!--Jika xp memenuhi level 3-->
-                    <a href="themes.php?level=3" class="level-item">
-                        <div class="level-icon completed">
-                            <i class="fa-solid fa-check-to-slot"></i>
-                        </div>
-                        <div class="level-info">
-                            <p class="level-status">TERBUKA</p>
-                            <h3 class="level-title">Tingkat 3</h3>
-                            <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
-                        </div>
-                    </a>
-                    <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
-                        <div class="level-icon locked">
-                            <i class="fas fa-lock"></i>
-                        </div>
-                        <div class="level-info">
-                            <p class="level-status locked">TERKUNCI</p>
-                            <h3 class="level-title">Tingkat 3</h3>
-                            <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
-                        </div>
-                    </a> -->
-                <!-- endif; -->
-
-                <!--Jika xp memenuhi level 4-->
-                    <a href="themes.php?level=4" class="level-item">
-                        <div class="level-icon completed">
-                            <i class="fas fa-book-open"></i>
-                        </div>
-                        <div class="level-info">
-                            <p class="level-status">TERBUKA</p>
-                            <h3 class="level-title">Tingkat 4</h3>
-                            <p class="level-desc">Menyimak dan memahami isi cerita</p>
-                        </div>
-                    </a>
                 
-                    <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
-                        <div class="level-icon locked">
-                            <i class="fas fa-lock"></i>
-                        </div>
-                        <div class="level-info">
-                            <p class="level-status locked">TERKUNCI</p>
-                            <h3 class="level-title">Tingkat 4</h3>
-                            <p class="level-desc">Menyimak dan memahami isi cerita</p>
-                        </div>
-                    </a> -->
-                <!-- endif; -->
+                <!-- Level 2 -->
+                <a href="<?php echo isLevelUnlocked(2, $total_score, $level_requirements) ? 'themes.php?level=2' : '#'; ?>" 
+                   class="level-item <?php echo !isLevelUnlocked(2, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
+                    <div class="level-icon <?php echo $current_unlocked_level == 2 ? 'active' : (isLevelUnlocked(2, $total_score, $level_requirements) ? 'completed' : 'locked'); ?>">
+                        <i class="fas <?php echo isLevelUnlocked(2, $total_score, $level_requirements) ? 'fa-pencil-alt' : 'fa-lock'; ?>"></i>
+                    </div>
+                    <div class="level-info">
+                        <p class="level-status <?php echo $current_unlocked_level == 2 ? 'active' : (isLevelUnlocked(2, $total_score, $level_requirements) ? 'completed' : 'locked'); ?>">
+                            <?php 
+                            if (!isLevelUnlocked(2, $total_score, $level_requirements)) {
+                                echo 'TERKUNCI (' . $level_requirements[2] . ' XP)';
+                            } elseif ($current_unlocked_level == 2) {
+                                echo 'LANJUTKAN';
+                            } else {
+                                echo 'TERSEDIA';
+                            }
+                            ?>
+                        </p>
+                        <h3 class="level-title">Tingkat 2</h3>
+                        <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
+                    </div>
+                </a>
+                
+                <!-- Level 3 -->
+                <a href="<?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'themes.php?level=3' : '#'; ?>" 
+                   class="level-item <?php echo !isLevelUnlocked(3, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
+                    <div class="level-icon <?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
+                        <i class="fas <?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'fa-edit' : 'fa-lock'; ?>"></i>
+                    </div>
+                    <div class="level-info">
+                        <p class="level-status <?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
+                            <?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'TERSEDIA' : 'TERKUNCI (' . $level_requirements[3] . ' XP)'; ?>
+                        </p>
+                        <h3 class="level-title">Tingkat 3</h3>
+                        <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
+                    </div>
+                </a>
+                
+                <!-- Level 4 -->
+                <a href="<?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'themes.php?level=4' : '#'; ?>" 
+                   class="level-item <?php echo !isLevelUnlocked(4, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
+                    <div class="level-icon <?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
+                        <i class="fas <?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'fa-book-open' : 'fa-lock'; ?>"></i>
+                    </div>
+                    <div class="level-info">
+                        <p class="level-status <?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
+                            <?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'TERSEDIA' : 'TERKUNCI (' . $level_requirements[4] . ' XP)'; ?>
+                        </p>
+                        <h3 class="level-title">Tingkat 4</h3>
+                        <p class="level-desc">Menyimak dan memahami isi cerita</p>
+                    </div>
+                </a>
             </div>
         </div>
 
