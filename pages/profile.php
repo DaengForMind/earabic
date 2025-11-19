@@ -1,41 +1,7 @@
 <?php
 // pages/profile.php
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once '../config/database.php';
-
-// Simple authentication check
-function isLoggedIn() {
-    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
-}
-
-// Simple redirect function
-function redirect($url) {
-    header("Location: $url");
-    exit();
-}
-
-// Get current user data
-function getCurrentUser() {
-    if (!isset($_SESSION['user_id'])) {
-        return null;
-    }
-    
-    $conn = getConnection();
-    $stmt = $conn->prepare("SELECT id, nama, email, instansi, tanggal_lahir, motivasi, photo FROM users WHERE id = ?");
-    $stmt->bind_param("i", $_SESSION['user_id']);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result->fetch_assoc();
-    $stmt->close();
-    $conn->close();
-    
-    return $user;
-}
+startSession();
 
 // Cek login
 if (!isLoggedIn()) {
@@ -44,21 +10,13 @@ if (!isLoggedIn()) {
 
 $user = getCurrentUser();
 
-if (!$user) {
-    // Logout jika user tidak ditemukan
-    session_destroy();
-    redirect('../index.php');
-}
-
 // Tentukan foto profile
 if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
     $profile_photo = '../' . $user['photo'];
 } else {
-    $avatar_initial = substr($user['nama'], 0, 1);
-    $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . strtoupper($avatar_initial);
+    $profile_photo = 'https://placehold.co/128x128/312e81/ffffff?text=' . $user['avatar_initial'];
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -629,8 +587,7 @@ if (!empty($user['photo']) && file_exists('../' . $user['photo'])) {
                 
                 if (data.success) {
                     alert('Foto berhasil diupload!');
-                    // Update image dengan cache busting
-                    document.getElementById('profileImage').src = '../' + data.photo_url + '?t=' + new Date().getTime();
+                    document.getElementById('profileImage').src = data.photo_url + '?t=' + new Date().getTime();
                 } else {
                     alert('Error: ' + data.message);
                     // Revert to old image
