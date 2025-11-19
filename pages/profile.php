@@ -452,7 +452,7 @@ if (!empty($user['photo'])) {
         <div class="profile-container">
             <!-- Avatar -->
             <div class="avatar-section">
-                <img src="<?php echo $profile_photo; ?>" 
+                <img src="<?php echo htmlspecialchars($profile_photo); ?>" 
                      alt="Profile Picture" 
                      class="avatar-img"
                      id="profileImage">
