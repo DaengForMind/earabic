@@ -583,7 +583,6 @@ if ($conn) $conn->close();
                 </a>
 
                 <!--Jika xp memenuhi level 2-->
-                <?php// if ($total_xp >= 100): ?>
                     <a href="themes.php?level=2" class="level-item">
                         <div class="level-icon completed">
                             <i class="fas fa-pencil-alt"></i>
@@ -594,7 +593,6 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
                         </div>
                     </a>
-                <?php// else: ?>
                     <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                         <div class="level-icon locked">
                             <i class="fas fa-lock"></i>
@@ -608,7 +606,6 @@ if ($conn) $conn->close();
                 <!-- endif; -->
 
                 <!--Jika xp memenuhi level 3-->
-                <?php// if ($total_xp >= 200): ?>
                     <a href="themes.php?level=3" class="level-item">
                         <div class="level-icon completed">
                             <i class="fa-solid fa-check-to-slot"></i>
@@ -619,7 +616,6 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
                         </div>
                     </a>
-                <?php// else: ?>
                     <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                         <div class="level-icon locked">
                             <i class="fas fa-lock"></i>
@@ -633,7 +629,6 @@ if ($conn) $conn->close();
                 <!-- endif; -->
 
                 <!--Jika xp memenuhi level 4-->
-                <?php// if ($total_xp >= 400): ?>
                     <a href="themes.php?level=4" class="level-item">
                         <div class="level-icon completed">
                             <i class="fas fa-book-open"></i>
@@ -644,7 +639,7 @@ if ($conn) $conn->close();
                             <p class="level-desc">Menyimak dan memahami isi cerita</p>
                         </div>
                     </a>
-                <?php// else: ?>
+                
                     <!-- <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
                         <div class="level-icon locked">
                             <i class="fas fa-lock"></i>
