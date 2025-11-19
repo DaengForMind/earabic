@@ -3,53 +3,102 @@
 require_once '../config/database.php';
 startSession();
 
+// ===== DEBUG (lokal) - MATIKAN DI PRODUCTION =====
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Cek login
 if (!isLoggedIn()) {
     redirect('../index.php');
 }
 
-$user = getCurrentUser();
-$conn = getConnection();
+// Ambil user sekarang (defensif)
+$user = getCurrentUser() ?: [];
+$user_id = (int)($user['id'] ?? 0);
 
-// Hitung total progress user
-$user_id = $user['id'];
-$stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$progress_result = $stmt->get_result()->fetch_assoc();
-$total_completed = $progress_result['total_completed'];
-$cumulative_progress = min(100, ($total_completed / 40) * 100); // 40 = total semua level & tema
-$stmt->close();
-
-// Hitung total XP user
-$stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$xp_result = $stmt->get_result()->fetch_assoc();
-$total_xp = $xp_result['total_completed'] * 25; // 25 XP per tema
-$stmt->close();
-
-// Get leaderboard data
-$leaderboard_query = "
-    SELECT u.id, u.nama, u.avatar_initial, u.motivasi, 
-           COUNT(up.id) * 25 as xp,
-           (COUNT(up.id) / 40) * 100 as progress
-    FROM users u
-    LEFT JOIN user_progress up ON u.id = up.user_id
-    GROUP BY u.id
-    ORDER BY xp DESC
-    LIMIT 10
-";
-$leaderboard_result = $conn->query($leaderboard_query);
-$leaderboard = [];
-while ($row = $leaderboard_result->fetch_assoc()) {
-    $leaderboard[] = $row;
+// Tentukan foto profile current user (defensif)
+$profile_photo = 'https://placehold.co/48x48/312e81/ffffff?text=' . urlencode($user['avatar_initial'] ?? 'U');
+if (!empty($user['photo'])) {
+    $candidate = realpath(__DIR__ . '/../' . ltrim($user['photo'], '/'));
+    if ($candidate && file_exists($candidate)) {
+        // gunakan path relatif yang cocok untuk frontend
+        $profile_photo = '../' . ltrim($user['photo'], '/');
+    }
 }
 
-$conn->close();
+// Buka koneksi DB lebih awal
+try {
+    $conn = getConnection();
+    if (function_exists('mysqli_report')) {
+        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    }
+} catch (Throwable $e) {
+    error_log("DB connection error in progress.php: " . $e->getMessage());
+    http_response_code(500);
+    echo "Terjadi kesalahan server. Periksa log.";
+    exit;
+}
+
+// Hitung total progress user (defensif)
+try {
+    $stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $progress_result = $stmt->get_result()->fetch_assoc();
+    $total_completed = (int)($progress_result['total_completed'] ?? 0);
+    $cumulative_progress = min(100, ($total_completed / 40) * 100); // 40 = total semua level & tema
+    $stmt->close();
+} catch (Throwable $e) {
+    error_log("Query error (user progress) in progress.php: " . $e->getMessage());
+    $total_completed = 0;
+    $cumulative_progress = 0;
+}
+
+// Hitung total XP user (defensif)
+try {
+    $stmt = $conn->prepare("SELECT COUNT(*) as total_completed FROM user_progress WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $xp_result = $stmt->get_result()->fetch_assoc();
+    $total_xp = (int)($xp_result['total_completed'] ?? 0) * 25; // 25 XP per tema
+    $stmt->close();
+} catch (Throwable $e) {
+    error_log("Query error (user xp) in progress.php: " . $e->getMessage());
+    $total_xp = 0;
+}
+
+// Ambil leaderboard (defensif, sertakan kolom photo)
+$leaderboard = [];
+try {
+    $leaderboard_query = "
+        SELECT u.id, u.nama, u.avatar_initial, u.motivasi, u.photo,
+               COUNT(up.id) * 25 as xp,
+               (COUNT(up.id) / 40) * 100 as progress
+        FROM users u
+        LEFT JOIN user_progress up ON u.id = up.user_id
+        GROUP BY u.id
+        ORDER BY xp DESC
+        LIMIT 10
+    ";
+    $res = $conn->query($leaderboard_query);
+    while ($row = $res->fetch_assoc()) {
+        // cast numeric fields to int/float for safety
+        $row['xp'] = (int)($row['xp'] ?? 0);
+        $row['progress'] = (float)($row['progress'] ?? 0);
+        $leaderboard[] = $row;
+    }
+} catch (Throwable $e) {
+    error_log("Leaderboard query error in progress.php: " . $e->getMessage());
+    $leaderboard = [];
+}
+
+// Tutup koneksi
+if ($conn) $conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -59,24 +108,8 @@ $conn->close();
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Amiri:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4f46e5">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Earabic">
-    <link rel="apple-touch-icon" href="assets/icon-192.png">
-    
-    <!-- Register Service Worker -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then(reg => console.log('Service Worker registered'))
-          .catch(err => console.log('Service Worker registration failed'));
-      }
-    </script>
     <style>
+        /* (semua style seperti sebelumnya — dipertahankan) */
         body {
             margin: 0;
             padding: 0;
@@ -84,7 +117,7 @@ $conn->close();
             background-color: #F8F6F2;
             padding-bottom: 100px;
         }
-        
+
         .progress-wrapper {
             width: 100%;
             max-width: 480px;
@@ -93,34 +126,35 @@ $conn->close();
             position: relative;
             z-index: 10;
         }
-        
+
         .header-section {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 2rem;
         }
-        
+
         .user-info h2 {
             font-size: 0.875rem;
             color: #6b7280;
             margin-bottom: 0.25rem;
         }
-        
+
         .user-info h1 {
             font-size: 1.5rem;
             font-weight: 700;
             color: #1f2937;
         }
-        
+
         .user-avatar {
             width: 48px;
             height: 48px;
             border-radius: 50%;
             border: 2px solid white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            object-fit: cover;
         }
-        
+
         .progress-card {
             background-color: white;
             padding: 1.5rem;
@@ -129,31 +163,31 @@ $conn->close();
             text-align: center;
             margin-bottom: 2rem;
         }
-        
+
         .progress-card h2 {
             font-size: 1.125rem;
             font-weight: 700;
             color: #1f2937;
             margin-bottom: 1.5rem;
         }
-        
+
         .circular-progress {
             position: relative;
             width: 120px;
             height: 120px;
             margin: 0 auto 1rem;
         }
-        
+
         .circular-progress svg {
             transform: rotate(-90deg);
         }
-        
+
         .progress-bg {
             fill: none;
             stroke: #e5e7eb;
             stroke-width: 10;
         }
-        
+
         .progress-bar-circle {
             fill: none;
             stroke: #4f46e5;
@@ -161,7 +195,7 @@ $conn->close();
             stroke-linecap: round;
             transition: stroke-dashoffset 1.5s cubic-bezier(0.25, 1, 0.5, 1);
         }
-        
+
         .progress-text {
             position: absolute;
             top: 50%;
@@ -171,19 +205,19 @@ $conn->close();
             font-weight: 700;
             color: #4f46e5;
         }
-        
+
         .progress-card p {
             font-size: 0.875rem;
             color: #6b7280;
         }
-        
+
         .section-title {
             font-size: 1.25rem;
             font-weight: 700;
             color: #1f2937;
             margin-bottom: 1rem;
         }
-        
+
         .map-card {
             background-color: white;
             padding: 1.5rem;
@@ -191,11 +225,11 @@ $conn->close();
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: 2rem;
         }
-        
+
         .level-path {
             position: relative;
         }
-        
+
         .level-line {
             position: absolute;
             left: 28px;
@@ -206,7 +240,7 @@ $conn->close();
             background-size: 2px 8px;
             background-repeat: repeat-y;
         }
-        
+
         .level-item {
             position: relative;
             display: flex;
@@ -217,7 +251,7 @@ $conn->close();
             text-decoration: none;
             color: inherit;
         }
-        
+
         .level-icon {
             width: 56px;
             height: 56px;
@@ -229,62 +263,77 @@ $conn->close();
             font-size: 2rem;
             transition: transform 0.3s;
         }
-        
+
         .level-item:hover .level-icon {
             transform: scale(1.05);
         }
-        
+
         .level-icon.completed {
             background-color: #22c55e;
             color: white;
             box-shadow: 0 0 0 4px #dcfce7;
         }
-        
+
         .level-icon.active {
             background-color: #4f46e5;
             color: white;
             box-shadow: 0 0 0 4px #e0e7ff;
             animation: pulse 2s infinite;
         }
-        
+
         .level-icon.locked {
             background-color: #d1d5db;
             color: #9ca3af;
             box-shadow: 0 0 0 4px #f3f4f6;
         }
-        
+
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
         }
-        
+
         .level-info {
             flex: 1;
         }
-        
+
         .level-status {
             font-size: 0.75rem;
             font-weight: 600;
             margin-bottom: 0.25rem;
         }
-        
-        .level-status.completed { color: #22c55e; }
-        .level-status.active { color: #4f46e5; }
-        .level-status.locked { color: #6b7280; }
-        
+
+        .level-status.completed {
+            color: #22c55e;
+        }
+
+        .level-status.active {
+            color: #4f46e5;
+        }
+
+        .level-status.locked {
+            color: #6b7280;
+        }
+
         .level-title {
             font-weight: 700;
             font-size: 1rem;
             color: #1f2937;
             margin-bottom: 0.25rem;
         }
-        
+
         .level-desc {
             font-size: 0.75rem;
             color: #6b7280;
             line-height: 1.4;
         }
-        
+
         .leaderboard-item {
             background-color: white;
             padding: 1rem;
@@ -295,13 +344,13 @@ $conn->close();
             align-items: flex-start;
             gap: 1rem;
         }
-        
+
         .leaderboard-item.current-user {
             background-color: #4338ca;
             color: white;
             box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);
         }
-        
+
         .rank-badge {
             width: 32px;
             height: 32px;
@@ -311,37 +360,38 @@ $conn->close();
             flex-shrink: 0;
             font-size: 1.25rem;
         }
-        
+
         .user-avatar-small {
             width: 48px;
             height: 48px;
             border-radius: 50%;
             flex-shrink: 0;
+            object-fit: cover;
         }
-        
+
         .leaderboard-info {
             flex: 1;
             min-width: 0;
         }
-        
+
         .leaderboard-name {
             font-weight: 700;
             font-size: 0.875rem;
             margin-bottom: 0.25rem;
         }
-        
+
         .leaderboard-quote {
             font-size: 0.75rem;
             font-style: italic;
             opacity: 0.8;
             margin-bottom: 0.5rem;
         }
-        
+
         .leaderboard-xp {
             font-size: 0.75rem;
             font-weight: 600;
         }
-        
+
         .progress-bar-mini {
             width: 100%;
             height: 6px;
@@ -350,22 +400,22 @@ $conn->close();
             overflow: hidden;
             margin-top: 0.5rem;
         }
-        
+
         .progress-fill-mini {
             height: 100%;
             background-color: white;
             border-radius: 999px;
             transition: width 1s ease;
         }
-        
+
         .leaderboard-item:not(.current-user) .progress-bar-mini {
             background-color: #e5e7eb;
         }
-        
+
         .leaderboard-item:not(.current-user) .progress-fill-mini {
             background-color: #4f46e5;
         }
-        
+
         /* Bottom Navigation */
         .bottom-nav {
             position: fixed;
@@ -381,7 +431,7 @@ $conn->close();
             border-radius: 1.5rem 1.5rem 0 0;
             z-index: 50;
         }
-        
+
         .nav-item {
             display: flex;
             flex-direction: column;
@@ -393,29 +443,29 @@ $conn->close();
             padding: 0.5rem;
             transition: color 0.3s;
         }
-        
+
         .nav-item:hover {
             color: #4f46e5;
         }
-        
+
         .nav-item.active {
             color: #4f46e5;
         }
-        
+
         .nav-icon-bg {
             padding: 0.75rem;
             border-radius: 50%;
             transition: background-color 0.3s;
         }
-        
+
         .nav-item.active .nav-icon-bg {
             background-color: #eef2ff;
         }
-        
+
         .nav-icon {
             font-size: 1.75rem;
         }
-        
+
         .bg-char {
             position: fixed;
             font-size: 6rem;
@@ -423,32 +473,28 @@ $conn->close();
             font-family: 'Amiri', serif;
             pointer-events: none;
         }
-        
+
         @media (min-width: 640px) {
             .bg-char {
                 font-size: 8rem;
             }
         }
 
-        /* Mascot (mobile-first) */
+        /* Mascot */
         .mascot {
             position: fixed;
             left: 12px;
             bottom: 96px;
-            /* di atas bottom-nav (height:80px + margin) */
             width: 64px;
             height: 64px;
             z-index: 60;
-            /* > .bottom-nav (50) */
             pointer-events: none;
-            /* tidak mengganggu interaksi */
             -webkit-user-select: none;
             user-select: none;
             transform-origin: 50% 50%;
             animation: mascot-bob 3s ease-in-out infinite;
         }
 
-        /* sedikit lebih besar pada layar >= 640px */
         @media (min-width: 640px) {
             .mascot {
                 left: 24px;
@@ -458,7 +504,6 @@ $conn->close();
             }
         }
 
-        /* bobbing animation — durasi 3s loop */
         @keyframes mascot-bob {
             0% {
                 transform: translateY(0) scale(1);
@@ -476,7 +521,6 @@ $conn->close();
             }
         }
 
-        /* Respect prefers-reduced-motion */
         @media (prefers-reduced-motion: reduce) {
             .mascot {
                 animation: none;
@@ -484,6 +528,7 @@ $conn->close();
         }
     </style>
 </head>
+
 <body>
     <!-- Background Decorative Characters -->
     <div style="position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;">
@@ -501,9 +546,9 @@ $conn->close();
         <div class="header-section">
             <div class="user-info">
                 <h2>Selamat datang kembali,</h2>
-                <h1><?php echo htmlspecialchars($user['nama']); ?>!</h1>
+                <h1><?php echo htmlspecialchars($user['nama'] ?? 'User'); ?>!</h1>
             </div>
-            <img src="https://placehold.co/48x48/312e81/ffffff?text=<?php echo $user['avatar_initial']; ?>" alt="Avatar" class="user-avatar">
+            <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Avatar" class="user-avatar">
         </div>
 
         <!-- Progress Card -->
@@ -513,7 +558,7 @@ $conn->close();
                 <svg width="120" height="120" viewBox="0 0 120 120">
                     <circle cx="60" cy="60" r="50" class="progress-bg"></circle>
                     <circle cx="60" cy="60" r="50" class="progress-bar-circle" id="progressCircle"
-                            style="stroke-dasharray: 314; stroke-dashoffset: 314;"></circle>
+                        style="stroke-dasharray: 314; stroke-dashoffset: 314;"></circle>
                 </svg>
                 <span class="progress-text" id="progressText">0%</span>
             </div>
@@ -525,7 +570,7 @@ $conn->close();
         <div class="map-card">
             <div class="level-path">
                 <div class="level-line"></div>
-                
+
                 <a href="themes.php?level=1" class="level-item">
                     <div class="level-icon completed">
                         <i class="fa-solid fa-ear-listen"></i>
@@ -539,77 +584,77 @@ $conn->close();
 
                 <!--Jika xp memenuhi level 2-->
                 <?php if ($total_xp >= 100): ?>
-                <a href="themes.php?level=2" class="level-item">
-                    <div class="level-icon completed">
-                        <i class="fas fa-pencil-alt"></i>
-                    </div>
-                    <div class="level-info">
-                        <p class="level-status ">TERBUKA</p>
-                        <h3 class="level-title">Tingkat 2</h3>
-                        <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
-                    </div>
-                </a>
+                    <a href="themes.php?level=2" class="level-item">
+                        <div class="level-icon completed">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        <div class="level-info">
+                            <p class="level-status ">TERBUKA</p>
+                            <h3 class="level-title">Tingkat 2</h3>
+                            <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
+                        </div>
+                    </a>
                 <?php else: ?>
-                <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
-                    <div class="level-icon locked">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <div class="level-info">
-                        <p class="level-status locked">TERKUNCI</p>
-                        <h3 class="level-title">Tingkat 2</h3>
-                        <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
-                    </div>
-                </a>
+                    <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                        <div class="level-icon locked">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="level-info">
+                            <p class="level-status locked">TERKUNCI</p>
+                            <h3 class="level-title">Tingkat 2</h3>
+                            <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
                 <!--Jika xp memenuhi level 3-->
                 <?php if ($total_xp >= 200): ?>
-                <a href="themes.php?level=3" class="level-item">
-                    <div class="level-icon completed">
-                        <i class="fa-solid fa-check-to-slot"></i>
-                    </div>
-                    <div class="level-info">
-                        <p class="level-status">TERBUKA</p>
-                        <h3 class="level-title">Tingkat 3</h3>
-                        <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
-                    </div>
-                </a>
+                    <a href="themes.php?level=3" class="level-item">
+                        <div class="level-icon completed">
+                            <i class="fa-solid fa-check-to-slot"></i>
+                        </div>
+                        <div class="level-info">
+                            <p class="level-status">TERBUKA</p>
+                            <h3 class="level-title">Tingkat 3</h3>
+                            <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
+                        </div>
+                    </a>
                 <?php else: ?>
-                <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
-                    <div class="level-icon locked">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <div class="level-info">
-                        <p class="level-status locked">TERKUNCI</p>
-                        <h3 class="level-title">Tingkat 3</h3>
-                        <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
-                    </div>
-                </a>
+                    <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                        <div class="level-icon locked">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="level-info">
+                            <p class="level-status locked">TERKUNCI</p>
+                            <h3 class="level-title">Tingkat 3</h3>
+                            <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
                 <!--Jika xp memenuhi level 4-->
                 <?php if ($total_xp >= 400): ?>
-                <a href="themes.php?level=4" class="level-item">
-                    <div class="level-icon completed">
-                        <i class="fas fa-book-open"></i>
-                    </div>
-                    <div class="level-info">
-                        <p class="level-status">TERBUKA</p>
-                        <h3 class="level-title">Tingkat 4</h3>
-                        <p class="level-desc">Menyimak dan memahami isi cerita</p>
-                    </div>
-                </a>
+                    <a href="themes.php?level=4" class="level-item">
+                        <div class="level-icon completed">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <div class="level-info">
+                            <p class="level-status">TERBUKA</p>
+                            <h3 class="level-title">Tingkat 4</h3>
+                            <p class="level-desc">Menyimak dan memahami isi cerita</p>
+                        </div>
+                    </a>
                 <?php else: ?>
-                <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
-                    <div class="level-icon locked">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <div class="level-info">
-                        <p class="level-status locked">TERKUNCI</p>
-                        <h3 class="level-title">Tingkat 4</h3>
-                        <p class="level-desc">Menyimak dan memahami isi cerita</p>
-                    </div>
-                </a>
+                    <a href="#" class="level-item" style="pointer-events: none; opacity: 0.7;">
+                        <div class="level-icon locked">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="level-info">
+                            <p class="level-status locked">TERKUNCI</p>
+                            <h3 class="level-title">Tingkat 4</h3>
+                            <p class="level-desc">Menyimak dan memahami isi cerita</p>
+                        </div>
+                    </a>
                 <?php endif; ?>
             </div>
         </div>
@@ -617,27 +662,43 @@ $conn->close();
         <!-- Leaderboard -->
         <h2 class="section-title">Papan Peringkat</h2>
         <div id="leaderboardContainer">
-            <?php 
+            <?php
             $medals = ['🥇', '🥈', '🥉'];
-            foreach ($leaderboard as $index => $leader): 
-                $is_current = ($leader['id'] == $user['id']);
+            foreach ($leaderboard as $index => $leader):
+                $is_current = isset($leader['id']) && $leader['id'] == ($user['id'] ?? 0);
                 $rank_display = $index < 3 ? $medals[$index] : ($index + 1);
+
+                // tentukan foto per leader secara aman
+                $avatarInitial = $leader['avatar_initial'] ?? '';
+                $photo_db = !empty($leader['photo']) ? $leader['photo'] : null;
+                $avatarSmall = 'https://placehold.co/48x48/e2e8f0/64748b?text=' . urlencode($avatarInitial);
+
+                if ($photo_db) {
+                    // coba resolve path absolut; jika file ada gunakan path relatif ke frontend
+                    $candidate = realpath(__DIR__ . '/../' . ltrim($photo_db, '/'));
+                    if ($candidate && file_exists($candidate)) {
+                        $avatarSmall = '../' . ltrim($photo_db, '/');
+                    } else {
+                        error_log("Missing photo file for user {$leader['id']}: {$photo_db}");
+                    }
+                }
             ?>
-            <div class="leaderboard-item <?php echo $is_current ? 'current-user' : ''; ?>">
-                <div class="rank-badge"><?php echo $rank_display; ?></div>
-                <img src="https://placehold.co/48x48/e2e8f0/64748b?text=<?php echo $leader['avatar_initial']; ?>" 
-                     alt="Avatar" class="user-avatar-small">
-                <div class="leaderboard-info">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h4 class="leaderboard-name"><?php echo htmlspecialchars($leader['nama']); ?></h4>
-                        <span class="leaderboard-xp"><?php echo $leader['xp']; ?> XP</span>
-                    </div>
-                    <p class="leaderboard-quote">"<?php echo htmlspecialchars($leader['motivasi'] ?: 'Belajar dengan semangat!'); ?>"</p>
-                    <div class="progress-bar-mini">
-                        <div class="progress-fill-mini" style="width: <?php echo round($leader['progress']); ?>%"></div>
+                <div class="leaderboard-item <?php echo $is_current ? 'current-user' : ''; ?>">
+                    <div class="rank-badge"><?php echo $rank_display; ?></div>
+                    <img src="<?php echo htmlspecialchars($avatarSmall); ?>"
+                        alt="Avatar"
+                        class="user-avatar-small">
+                    <div class="leaderboard-info">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4 class="leaderboard-name"><?php echo htmlspecialchars($leader['nama'] ?? '—'); ?></h4>
+                            <span class="leaderboard-xp"><?php echo $leader['xp']; ?> XP</span>
+                        </div>
+                        <p class="leaderboard-quote">"<?php echo htmlspecialchars($leader['motivasi'] ?: 'Belajar dengan semangat!'); ?>"</p>
+                        <div class="progress-bar-mini">
+                            <div class="progress-fill-mini" style="width: <?php echo round($leader['progress']); ?>%"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
             <?php endforeach; ?>
         </div>
     </div>
@@ -661,7 +722,6 @@ $conn->close();
         </a>
     </nav>
 
-    <!-- Mascot GIF (fixed left-bottom, mobile-first) -->
     <img src="../assets/images/maskot.gif" alt="Maskot" class="mascot" aria-hidden="true" loading="lazy">
 
     <script>
@@ -671,11 +731,11 @@ $conn->close();
             const circle = document.getElementById('progressCircle');
             const text = document.getElementById('progressText');
             const circumference = 2 * Math.PI * 50;
-            
+
             setTimeout(() => {
                 const offset = circumference - (progress / 100) * circumference;
                 circle.style.strokeDashoffset = offset;
-                
+
                 let current = 0;
                 const interval = setInterval(() => {
                     current++;
@@ -686,4 +746,5 @@ $conn->close();
         });
     </script>
 </body>
+
 </html>
