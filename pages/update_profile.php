@@ -1,45 +1,36 @@
 <?php
 // pages/update_profile.php
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once '../config/database.php';
+startSession();
 
 header('Content-Type: application/json');
 
-// Simple authentication check
-if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
+if (!isLoggedIn()) {
     echo json_encode(['success' => false, 'message' => 'Tidak login']);
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
-    exit();
-}
-
-$user_id = $_SESSION['user_id'];
-$instansi = $_POST['instansi'] ?? '';
-$tanggal_lahir = $_POST['tanggal_lahir'] ?? '';
-$motivasi = $_POST['motivasi'] ?? '';
-
-try {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user_id = $_SESSION['user_id'];
+    $instansi = isset($_POST['instansi']) ? trim($_POST['instansi']) : '';
+    $tanggal_lahir = isset($_POST['tanggal_lahir']) ? trim($_POST['tanggal_lahir']) : null;
+    $motivasi = isset($_POST['motivasi']) ? trim($_POST['motivasi']) : '';
+    
     $conn = getConnection();
+    
+    // Update profile
     $stmt = $conn->prepare("UPDATE users SET instansi = ?, tanggal_lahir = ?, motivasi = ? WHERE id = ?");
     $stmt->bind_param("sssi", $instansi, $tanggal_lahir, $motivasi, $user_id);
     
     if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => 'Profile updated successfully']);
+        echo json_encode(['success' => true, 'message' => 'Profile berhasil diupdate']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to update profile']);
+        echo json_encode(['success' => false, 'message' => 'Gagal update profile']);
     }
     
     $stmt->close();
     $conn->close();
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+} else {
+    echo json_encode(['success' => false, 'message' => 'Method tidak diizinkan']);
 }
 ?>
