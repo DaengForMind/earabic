@@ -48,7 +48,7 @@ try {
         SELECT 
             COALESCE(SUM(score), 0) as total_score,
             COALESCE(COUNT(*), 0) as total_attempts,
-            COALESCE((SUM(score) / (COUNT(*) * 10)) * 100, 0) as cumulative_progress
+            COALESCE((SUM(score) / 200) * 100, 0) as cumulative_progress
         FROM user_progress 
         WHERE user_id = ?
     ");
@@ -73,7 +73,8 @@ $level_requirements = [
     4 => 120     // Level 4: Butuh 120 XP (12 tema x 10 soal benar)
 ];
 
-function isLevelUnlocked($level, $total_xp, $level_requirements) {
+function isLevelUnlocked($level, $total_xp, $level_requirements)
+{
     return $total_xp >= $level_requirements[$level];
 }
 
@@ -91,11 +92,11 @@ try {
     // Get leaderboard data - XP berdasarkan skor benar
     $leaderboard_query = "
         SELECT u.id, u.nama, u.avatar_initial, u.motivasi, u.photo,
-               COALESCE(SUM(up.score), 0) as xp,
-               COALESCE(
-                   (SUM(up.score) / (COUNT(up.id) * 10)) * 100, 
-                   0
-               ) as progress
+            COALESCE(SUM(up.score), 0) as xp,
+            COALESCE(
+                (SUM(up.score) / 200) * 100, 
+                0
+            ) as progress
         FROM users u
         LEFT JOIN user_progress up ON u.id = up.user_id
         GROUP BY u.id
@@ -624,16 +625,16 @@ if ($conn) $conn->close();
                         <p class="level-desc">Menyimak lalu memilih pilihan ganda sesuai dengan apa yang di dengar</p>
                     </div>
                 </a>
-                
+
                 <!-- Level 2 -->
-                <a href="<?php echo isLevelUnlocked(2, $total_score, $level_requirements) ? 'themes.php?level=2' : '#'; ?>" 
-                   class="level-item <?php echo !isLevelUnlocked(2, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
+                <a href="<?php echo isLevelUnlocked(2, $total_score, $level_requirements) ? 'themes.php?level=2' : '#'; ?>"
+                    class="level-item <?php echo !isLevelUnlocked(2, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
                     <div class="level-icon <?php echo $current_unlocked_level == 2 ? 'active' : (isLevelUnlocked(2, $total_score, $level_requirements) ? 'completed' : 'locked'); ?>">
                         <i class="fas <?php echo isLevelUnlocked(2, $total_score, $level_requirements) ? 'fa-pencil-alt' : 'fa-lock'; ?>"></i>
                     </div>
                     <div class="level-info">
                         <p class="level-status <?php echo $current_unlocked_level == 2 ? 'active' : (isLevelUnlocked(2, $total_score, $level_requirements) ? 'completed' : 'locked'); ?>">
-                            <?php 
+                            <?php
                             if (!isLevelUnlocked(2, $total_score, $level_requirements)) {
                                 echo 'TERKUNCI (' . $level_requirements[2] . ' XP)';
                             } elseif ($current_unlocked_level == 2) {
@@ -647,10 +648,10 @@ if ($conn) $conn->close();
                         <p class="level-desc">Menyimak lalu menulis apa yang didengar</p>
                     </div>
                 </a>
-                
+
                 <!-- Level 3 -->
-                <a href="<?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'themes.php?level=3' : '#'; ?>" 
-                   class="level-item <?php echo !isLevelUnlocked(3, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
+                <a href="<?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'themes.php?level=3' : '#'; ?>"
+                    class="level-item <?php echo !isLevelUnlocked(3, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
                     <div class="level-icon <?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
                         <i class="fas <?php echo isLevelUnlocked(3, $total_score, $level_requirements) ? 'fa-edit' : 'fa-lock'; ?>"></i>
                     </div>
@@ -662,10 +663,10 @@ if ($conn) $conn->close();
                         <p class="level-desc">Menyimak lalu melengkapi kalimat yang rumpang</p>
                     </div>
                 </a>
-                
+
                 <!-- Level 4 -->
-                <a href="<?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'themes.php?level=4' : '#'; ?>" 
-                   class="level-item <?php echo !isLevelUnlocked(4, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
+                <a href="<?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'themes.php?level=4' : '#'; ?>"
+                    class="level-item <?php echo !isLevelUnlocked(4, $total_score, $level_requirements) ? 'level-locked' : ''; ?>">
                     <div class="level-icon <?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'completed' : 'locked'; ?>">
                         <i class="fas <?php echo isLevelUnlocked(4, $total_score, $level_requirements) ? 'fa-book-open' : 'fa-lock'; ?>"></i>
                     </div>
@@ -682,6 +683,31 @@ if ($conn) $conn->close();
 
         <!-- Leaderboard -->
         <h2 class="section-title">Papan Peringkat</h2>
+
+        <!-- Search Box -->
+        <div style="margin-bottom: 1rem;">
+            <div style="position: relative;">
+                <input type="text"
+                    id="searchLeaderboard"
+                    placeholder="Cari nama..."
+                    style="width: 100%; 
+                      padding: 0.75rem 1rem 0.75rem 2.5rem; 
+                      border: 2px solid #e5e7eb; 
+                      border-radius: 0.75rem; 
+                      font-size: 0.875rem;
+                      outline: none;
+                      transition: border-color 0.3s;">
+                <i class="fas fa-search"
+                    style="position: absolute; 
+                  left: 1rem; 
+                  top: 50%; 
+                  transform: translateY(-50%); 
+                  color: #9ca3af;
+                  font-size: 0.875rem;"></i>
+            </div>
+        </div>
+
+
         <div id="leaderboardContainer">
             <?php
             $medals = ['🥇', '🥈', '🥉'];
@@ -764,6 +790,23 @@ if ($conn) $conn->close();
                     if (current >= progress) clearInterval(interval);
                 }, 15);
             }, 100);
+        });
+
+        // Search functionality for leaderboard
+        document.getElementById('searchLeaderboard').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const leaderboardItems = document.querySelectorAll('.leaderboard-item');
+
+            leaderboardItems.forEach(function(item) {
+                const nameElement = item.querySelector('.leaderboard-name');
+                const name = nameElement ? nameElement.textContent.toLowerCase() : '';
+
+                if (name.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         });
     </script>
 </body>
