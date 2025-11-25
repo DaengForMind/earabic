@@ -852,15 +852,28 @@ $level_descriptions = [
         }
 
         function unlockMufrodat(word, translation) {
-            const audioUrl = questions[currentQuestion].audio_url;
+            const q = questions[currentQuestion];
+        
+            // Default: pakai audio_url
+            let audioUrl = q.audio_url;
+        
+            // Kalau level 3 dan audio_url2 tersedia, pakai audio_url2
+            if (level === 3 && q.audio_url2) {
+                audioUrl = q.audio_url2;
+            }
+        
             fetch('save_mufrodat.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: `word=${encodeURIComponent(word)}&translation=${encodeURIComponent(translation)}&audio_url=${encodeURIComponent(audioUrl)}`
+                body:
+                    `word=${encodeURIComponent(word)}` +
+                    `&translation=${encodeURIComponent(translation)}` +
+                    `&audio_url=${encodeURIComponent(audioUrl)}`
             });
         }
+
 
         function saveProgress() {
             fetch('save_progress.php', {
